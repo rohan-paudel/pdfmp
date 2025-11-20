@@ -9,7 +9,7 @@ import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.platform.LocalDensity
 import com.dshatz.pdfmp.compose.state.PdfPageState
 
-actual fun Modifier.pageTransformModifier(pageState: PdfPageState, enablePan: Boolean): Modifier {
+actual fun Modifier.platformPageTransformModifier(pageState: PdfPageState, enablePan: Boolean): Modifier {
     return desktopZoom(pageState, enablePan)
 }
 

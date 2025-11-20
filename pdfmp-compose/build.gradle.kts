@@ -11,8 +11,9 @@ kotlin {
     jvmToolchain(21)
     androidTarget()
     jvm()
-//    iosArm64()
-//    iosSimulatorArm64()
+    iosArm64()
+    iosSimulatorArm64()
+    iosX64()
 
     sourceSets {
         commonMain.dependencies {

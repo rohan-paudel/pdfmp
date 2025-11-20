@@ -107,6 +107,7 @@ kotlin {
     // iOS Targets
     iosArm64 { setUpPdfiumCinterop(); setupSharedLib() }
     iosSimulatorArm64 { setUpPdfiumCinterop(); setupSharedLib() }
+    iosX64 { setUpPdfiumCinterop(); setupSharedLib() }
 
     sourceSets {
         commonMain.dependencies {

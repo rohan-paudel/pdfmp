@@ -22,11 +22,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.toIntSize
 import com.dshatz.pdfmp.*
 import com.dshatz.pdfmp.compose.state.PdfPageState
 import com.dshatz.pdfmp.compose.tools.PartialBitmapRenderer
 import com.dshatz.pdfmp.compose.tools.pageTransformModifier
+import com.dshatz.pdfmp.compose.tools.platformPageTransformModifier
 import com.dshatz.pdfmp.compose.tools.toImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -160,7 +160,7 @@ internal fun InternalPdfPage(
             .pageTransformModifier(state, scrollable))
     ) {
 
-        baseImage?.let { baseImg ->
+        baseImage?.takeIf { it.loadedTransform != requestedTransform }?.let { baseImg ->
             val image = baseImg.toImageBitmap()
             DisposableEffect(image) {
                 onDispose {
@@ -223,7 +223,6 @@ internal fun InternalPdfPage(
                     }
             )
         }
-
 
         /*Column(
             Modifier.align(Alignment.TopCenter).padding(top = 10.dp),

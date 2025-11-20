@@ -13,12 +13,14 @@ kotlin {
         }
     }
     androidTarget()
+    iosArm64()
+    iosSimulatorArm64()
+    iosX64()
 
     sourceSets {
         commonMain.dependencies {
             implementation(project(":pdfmp-compose"))
 //            implementation("com.dshatz.pdfmp:core:1.0.0")
-            implementation(compose.desktop.common)
             implementation(compose.runtime)
             implementation(compose.material3)
             implementation(compose.components.resources)
@@ -28,6 +30,8 @@ kotlin {
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
+            implementation(compose.desktop.common)
+
         }
         androidMain.dependencies {
             implementation("androidx.activity:activity-compose:1.11.0")

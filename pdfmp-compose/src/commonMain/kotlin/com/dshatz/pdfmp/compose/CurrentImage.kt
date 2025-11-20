@@ -14,15 +14,9 @@ interface ICurrentImage {
 }
 
 
-expect class CurrentImage(
-    requestedTransform: ImageTransform,
-    loadedTransform: ImageTransform,
-    pageSize: PageSize,
-    buffer: ConsumerBuffer
-): ICurrentImage {
-    override val requestedTransform: ImageTransform
-    override val loadedTransform: ImageTransform
-    override val pageSize: PageSize
+data class CurrentImage(
+    override val requestedTransform: ImageTransform,
+    override val loadedTransform: ImageTransform,
+    override val pageSize: PageSize,
     override val buffer: ConsumerBuffer
-
-}
+): ICurrentImage
