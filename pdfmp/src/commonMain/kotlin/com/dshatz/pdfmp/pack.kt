@@ -42,12 +42,6 @@ data class RenderRequest(
 ) {
     fun pack(): ByteArray {
         val buffer = Buffer()
-
-//        val pathString = path.toString()
-//        val pathBytes = pathString.encodeToByteArray()
-//        buffer.writeInt(pathBytes.size)
-//        buffer.write(pathBytes)
-
         buffer.writeLong(bufferAddress)
         buffer.writeInt(page)
         buffer.write(transform.pack())
@@ -59,13 +53,10 @@ data class RenderRequest(
         fun unpack(data: ByteArray): RenderRequest {
             val buffer = Buffer()
             buffer.write(data)
-//            val pathLen = buffer.readInt()
-//            val pathString = buffer.readString(byteCount = pathLen.toLong())
-//            val path = Path(pathString)
-            val bufferAddr = buffer.readLong()
+            val bufferAddress = buffer.readLong()
             val page = buffer.readInt()
             return RenderRequest(
-                page, ImageTransform.unpack(buffer.readByteArray()), bufferAddr
+                page, ImageTransform.unpack(buffer.readByteArray()), bufferAddress
             )
         }
     }

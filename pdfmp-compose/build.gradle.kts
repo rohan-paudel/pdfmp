@@ -12,6 +12,7 @@ kotlin {
     androidTarget()
     jvm()
 //    iosArm64()
+//    iosSimulatorArm64()
 
     sourceSets {
         commonMain.dependencies {
@@ -33,6 +34,7 @@ android {
 
 
 mavenPublishing {
+    signAllPublications()
     publishToMavenCentral(true)
     coordinates("com.dshatz.pdfmp", "pdfmp-compose", "1.0.0")
 

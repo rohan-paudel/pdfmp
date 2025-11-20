@@ -20,7 +20,7 @@ import java.awt.image.SampleModel
 @Composable
 internal actual fun CurrentImage.toImageBitmap(): RecyclableBitmap {
     val imageBitmap = remember(loadedTransform) {
-        val buffer = (renderResponse as PdfRenderer.JvmRenderResponse).byteBuffer
+        val buffer = buffer.buffer
         buffer.rewind()
         if (loadedTransform.viewportWidth == 0 || loadedTransform.viewportHeight == 0) {
             // Return an empty bitmap if dimensions are invalid

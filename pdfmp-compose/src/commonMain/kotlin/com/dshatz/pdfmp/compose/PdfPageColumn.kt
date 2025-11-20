@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.dshatz.pdfmp.ConsumerBufferPool
 import com.dshatz.pdfmp.PdfRenderer
 import com.dshatz.pdfmp.compose.state.rememberDocumentState
 import com.dshatz.pdfmp.compose.state.rememberPageRenderState
@@ -27,6 +28,7 @@ import com.dshatz.pdfmp.source.PdfSource
 @Composable
 fun PdfPageColumn(source: PdfSource, modifier: Modifier = Modifier) {
     val renderer = remember(source) { PdfRenderer(source) }
+    val bufferPool = remember(source) { ConsumerBufferPool() }
     DisposableEffect(Unit) {
         onDispose {
             renderer.close()
@@ -47,7 +49,7 @@ fun PdfPageColumn(source: PdfSource, modifier: Modifier = Modifier) {
                 val pageState = rememberPageRenderState(docState, pageIdx)
 
                 Column(Modifier.requiredHeight(with (LocalDensity.current) { pageState.imageSize.value.height.toDp() } + 30.dp)) {
-                    InternalPdfPage(renderer, pageState, pageIdx, Modifier.fillMaxWidth(), scrollable = false)
+                    InternalPdfPage(renderer, bufferPool, pageState, pageIdx, Modifier.fillMaxWidth(), scrollable = false)
                 }
             }
         }

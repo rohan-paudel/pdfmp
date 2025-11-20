@@ -8,7 +8,6 @@ import kotlinx.io.readFloat
 import kotlinx.io.writeFloat
 
 open class RenderResponse(
-//    val pixelData: ByteArray,
     open val transform: ImageTransform,
     open val pageSize: PageSize,
 ) {

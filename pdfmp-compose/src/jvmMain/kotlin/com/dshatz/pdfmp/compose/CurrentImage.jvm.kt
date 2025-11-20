@@ -1,12 +1,13 @@
 package com.dshatz.pdfmp.compose
 
+import com.dshatz.pdfmp.ConsumerBuffer
 import com.dshatz.pdfmp.ImageTransform
 import com.dshatz.pdfmp.PageSize
 import com.dshatz.pdfmp.RenderResponse
 
 actual class CurrentImage actual constructor(
-    override val requestedTransform: ImageTransform,
-    override val loadedTransform: ImageTransform,
-    override val pageSize: PageSize,
-    override val renderResponse: RenderResponse
+    actual override val requestedTransform: ImageTransform,
+    actual override val loadedTransform: ImageTransform,
+    actual override val pageSize: PageSize,
+    actual override val buffer: ConsumerBuffer
 ) : ICurrentImage

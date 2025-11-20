@@ -17,7 +17,7 @@ plugins {
 group = "com.dshatz"
 version = "1.0.0"
 
-// Map KMP target names to standard resource folder names (e.g. for JNI loading)
+// Map KMP target names to standard pdfium lib folder.
 private val desktopTargetMap = mapOf(
     "linuxX64"   to "linux-x64",
     "linuxArm64" to "linux-arm64",
@@ -77,9 +77,14 @@ kotlin {
             }
             withIos()
         }
-        group("frontend") {
-            withJvm()
-            withAndroidTarget()
+        group("consumer") {
+            group("consumerJni") {
+                withJvm()
+                withAndroidTarget()
+            }
+            group("consumerNative") {
+                withIos()
+            }
         }
     }
     jvmToolchain(21)
@@ -115,19 +120,14 @@ kotlin {
         }
         getByName("androidNativeMain").dependsOn(getByName("nativeJniMain"))
 
-        getByName("frontendMain") {
+        getByName("consumerMain") {
             dependsOn(getByName("commonMain"))
-            dependencies {
-                implementation(libs.coroutines)
-            }
         }
     }
     compilerOptions {
         freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 }
-
-// --- ANDROID NATIVE PACKAGING (AAR) ---
 
 val packageAndroidNatives = tasks.register<Copy>("packageAndroidNatives") {
     group = "build"
@@ -175,22 +175,23 @@ android {
         minSdk = 24
     }
 
-    // Inject the gathered native libs into the Android SourceSet so they end up in the AAR
     sourceSets.getByName("main") {
         jniLibs.srcDir(packageAndroidNatives.map { it.destinationDir })
     }
+
+    libraryVariants.configureEach {
+        preBuildProvider.configure {
+            dependsOn(packageAndroidNatives)
+        }
+    }
 }
 
-// --- JVM DESKTOP NATIVE BUNDLING (JAR) ---
 
-// This hooks into the standard 'jvmJar' task and adds the native files inside.
 tasks.named<Jar>("jvmJar") {
-    // Iterate over our defined desktop targets
     desktopTargetMap.forEach { (targetName, resourcePath) ->
         val target = kotlin.targets.findByName(targetName) as? KotlinNativeTarget
 
         if (target != null) {
-            // 1. Get the compiled shared library from THIS project (libpdfmp.so)
             val sharedLib = target.binaries.findSharedLib("release")
             if (sharedLib != null) {
                 dependsOn(sharedLib.linkTaskProvider)
@@ -199,8 +200,6 @@ tasks.named<Jar>("jvmJar") {
                 }
             }
 
-            // 2. Get the prebuilt dependency library (libpdfium.so)
-            // Note: We replicate the path logic from 'setupSharedLib'
             val prebuiltDir = rootProject.project("pdfium-binaries").file("binaries/$targetName")
 
             if (prebuiltDir.exists()) {
@@ -230,6 +229,7 @@ dependencies {
 }
 
 mavenPublishing {
+    signAllPublications()
     publishToMavenCentral(true)
     coordinates("com.dshatz.pdfmp", "pdfmp", "1.0.0")
 

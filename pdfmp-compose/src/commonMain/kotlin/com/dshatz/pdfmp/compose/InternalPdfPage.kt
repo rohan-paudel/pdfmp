@@ -29,6 +29,7 @@ import com.dshatz.pdfmp.compose.tools.PartialBitmapRenderer
 import com.dshatz.pdfmp.compose.tools.pageTransformModifier
 import com.dshatz.pdfmp.compose.tools.toImageBitmap
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.math.min
@@ -38,6 +39,7 @@ val ImageTransform.viewport get() = IntSize(viewportWidth, viewportHeight)
 @Composable
 internal fun InternalPdfPage(
     renderer: PdfRenderer,
+    bufferPool: ConsumerBufferPool,
     state: PdfPageState,
     page: Int,
     modifier: Modifier = Modifier,
@@ -60,18 +62,14 @@ internal fun InternalPdfPage(
             if (displayedImage != null) delay(100)
 
             withContext(Dispatchers.IO) {
-                val renderResult = renderer.render(
-                    RenderRequest(
-                        page,
-                        requestedTransform,
-                        0
-                    )
-                ) as PdfRenderer.JvmRenderResponse
+                val (renderResult, buffer) = withRenderRequest(page, requestedTransform, bufferPool) {
+                    renderer.render(it)
+                }
                 displayedImage = CurrentImage(
                     requestedTransform,
                     renderResult.transform,
                     renderResult.pageSize,
-                    renderResult
+                    buffer
                 )
             }
         }
@@ -111,14 +109,16 @@ internal fun InternalPdfPage(
             viewportSize.width.toInt(),
             (viewportSize.width / ratio).toInt()
         )
-        println("Requesting baseImage: ${transform.viewport}")
-        val renderResult =
-            withContext(Dispatchers.IO) { renderer.render(RenderRequest(page, transform, 0)) }
+        val (renderResult, buffer) = withContext(Dispatchers.IO) {
+            withRenderRequest(page, transform, bufferPool) {
+                renderer.render(it)
+            }
+        }
         value = CurrentImage(
             transform,
             transform,
             renderResult.pageSize,
-            renderResult
+            buffer
         )
     }
 

@@ -132,7 +132,7 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
                     val byteCount = viewportWidth * viewportHeight * 4
                     memScoped {
                         val targetPtr: CPointer<out CPointed> = bufferAddress.toCPointer<CPointed>()
-                            ?: throw IllegalArgumentException("Invalid target memory address")
+                            ?: throw IllegalArgumentException("Invalid target memory address $bufferAddress")
                         memcpy(targetPtr, bufferPtr, byteCount.convert())
                     }
 //                    val pixelData: ByteArray = bufferPtr.readBytes(byteCount)
