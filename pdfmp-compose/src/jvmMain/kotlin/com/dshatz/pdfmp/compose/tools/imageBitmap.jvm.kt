@@ -20,7 +20,7 @@ import java.awt.image.SampleModel
 
 @Composable
 internal actual fun CurrentImage.toImageBitmap(): RecyclableBitmap {
-    val imageBitmap = remember(loadedTransform) {
+    val imageBitmap = remember(loadedTransform, buffer) {
         val buffer = buffer.buffer
         buffer.rewind()
         val (width, height) = loadedTransform.size()

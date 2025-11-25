@@ -4,9 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -16,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -23,21 +22,19 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.zIndex
 import com.dshatz.pdfmp.compose.state.PdfState
 import com.dshatz.pdfmp.compose.tools.PartialBitmapRenderer
 import com.dshatz.pdfmp.compose.tools.pageTransformModifier
-import com.dshatz.pdfmp.compose.tools.platformPageTransformModifier
 import com.dshatz.pdfmp.compose.tools.toImageBitmap
 import kotlinx.coroutines.delay
 
@@ -145,7 +142,31 @@ private fun BaseImage(
     modifier: Modifier = Modifier,
 ) {
     val transforms by state.produceImageTransforms()
-    val baseImages by produceState<List<CurrentImage>?>(null, transforms.keys) {
+
+    val baseImageCache = remember { mutableStateMapOf<Int, CurrentImage>() }
+
+
+    LaunchedEffect(transforms) {
+        transforms.forEach { (page, transform) ->
+            // Check if not already cached.
+            if (!baseImageCache.containsKey(page)) {
+                // Use the uncut version at scale 1x
+                val fullPageTransform = transform.uncut().copy(scale = 1f)
+
+                val (response, buffer) = state.render(page, fullPageTransform)
+                val image = CurrentImage(
+                    requestedTransform = fullPageTransform,
+                    loadedTransform = response.transform,
+                    buffer = buffer
+                )
+                baseImageCache[page] = image
+            }
+        }
+        // Optional: Cleanup (Remove pages that are no longer visible to save RAM)
+        // baseImageCache.keys.retainAll(transforms.keys)
+    }
+
+    /*val baseImages by produceState<List<CurrentImage>?>(null, transforms.keys) {
         value = transforms.map { (page, transform) ->
             val fullPageTransform = transform.uncut().copy(scale = 1f)
             val (response, buffer) = state.render(page, fullPageTransform)
@@ -155,32 +176,40 @@ private fun BaseImage(
                 buffer = buffer
             )
         }
-    }
+    }*/
 
 
 
 
 
     Column(modifier) {
-        baseImages?.forEachIndexed { idx, image ->
-            val image = image.toImageBitmap()
+        transforms.forEach { (pageIdx, transform) ->
+            val cachedImage = baseImageCache[pageIdx]
+            val image = cachedImage?.toImageBitmap()
             DisposableEffect(image) {
                 onDispose {
-                    image.onRecycle()
+                    image?.onRecycle()
                 }
             }
 
-            transforms[idx]?.let { originalTransform ->
-                val size = Size(
-                    (originalTransform.scaledWidth - originalTransform.leftCutoff - originalTransform.rightCutoff).toFloat(),
-                    (originalTransform.scaledHeight - originalTransform.topCutoff - originalTransform.bottomCutoff).toFloat()
-                )
+            val width = transform.scaledWidth - transform.leftCutoff - transform.rightCutoff
+            val height = transform.scaledHeight - transform.topCutoff - transform.bottomCutoff
+            val dstSize = Size(width.toFloat(), height.toFloat())
+
+            /*val size = Size(
+                (transform.scaledWidth - transform.leftCutoff - transform.rightCutoff).toFloat(),
+                (transform.scaledHeight - transform.topCutoff - transform.bottomCutoff).toFloat()
+            )*/
+            val currentScale = transform.scale
+            val srcX = (transform.leftCutoff / currentScale).toInt()
+            val srcY = (transform.topCutoff / currentScale).toInt()
+            if (image != null) {
                 PartialBitmapRenderer(
                     image.imageBitmap,
-                    srcOffset = IntOffset(originalTransform.leftCutoff, originalTransform.topCutoff),
-                    scale = originalTransform.scale,
-                    dstSize = size,
-                    modifier = Modifier.requiredSize(with (LocalDensity.current) { size.toDpSize() })
+                    srcOffset = IntOffset(srcX, srcY),
+                    scale = transform.scale,
+                    dstSize = dstSize,
+                    modifier = Modifier.requiredSize(with (LocalDensity.current) { dstSize.toDpSize() })
                 )
             }
             /*Image(

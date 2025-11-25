@@ -1,6 +1,7 @@
 @file:OptIn(ExperimentalComposeLibrary::class)
 
 import org.jetbrains.compose.ExperimentalComposeLibrary
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     alias(libs.plugins.mp)
@@ -15,9 +16,16 @@ kotlin {
     jvmToolchain(21)
     androidTarget()
     jvm()
-    iosArm64()
-    iosSimulatorArm64()
-    iosX64()
+
+    val iosTargets = listOf(iosX64(), iosArm64(), iosSimulatorArm64())
+
+    val xcf = XCFramework()
+    iosTargets.forEach {
+        it.binaries.framework {
+            baseName = "pdfmp"
+            xcf.add(this)
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {
