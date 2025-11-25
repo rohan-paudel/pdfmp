@@ -1,30 +1,14 @@
 package com.dshatz.pdfmp.compose
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredHeight
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.dshatz.pdfmp.ConsumerBufferPool
 import com.dshatz.pdfmp.PdfRenderer
-import com.dshatz.pdfmp.compose.state.rememberDocumentState
-import com.dshatz.pdfmp.compose.state.rememberPageRenderState
 import com.dshatz.pdfmp.source.PdfSource
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -53,7 +37,7 @@ fun PdfPageColumn(source: PdfSource, modifier: Modifier = Modifier) {
             val firstPageHeight = with (density) { (containerWidth / ratios[0]).toDp() }
             val listState = rememberLazyListState(cacheWindow = LazyLayoutCacheWindow(firstPageHeight, firstPageHeight))
 
-            val docState = rememberDocumentState()
+            /*val docState = rememberDocumentState()
 
             LazyColumn(Modifier.matchParentSize(), state = listState) {
                 items(ratios.size) { pageIdx ->
@@ -69,7 +53,7 @@ fun PdfPageColumn(source: PdfSource, modifier: Modifier = Modifier) {
                         }
                     }
                 }
-            }
+            }*/
         }
     }
 }

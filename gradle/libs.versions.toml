@@ -25,3 +25,4 @@ io = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version = "0.8.0" }
 filepicker = { module = "io.github.vinceglb:filekit-core", version.ref = "filepicker" }
 filepicker-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", version.ref = "filepicker" }
 coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version = "1.10.2" }
+coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version = "1.10.2" }

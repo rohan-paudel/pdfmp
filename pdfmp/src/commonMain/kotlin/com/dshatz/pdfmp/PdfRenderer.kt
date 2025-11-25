@@ -9,12 +9,10 @@ import kotlinx.io.writeFloat
 
 open class RenderResponse(
     open val transform: ImageTransform,
-    open val pageSize: PageSize,
 ) {
     internal fun pack(): ByteArray {
         val buffer = Buffer()
         buffer.write(transform.pack())
-        buffer.write(pageSize.pack())
         return buffer.readByteArray()
     }
 
@@ -26,13 +24,12 @@ open class RenderResponse(
             val transform = ImageTransform.unpack(data)
             return RenderResponse(
                 transform = transform,
-                pageSize = PageSize.unpack(buffer)
             )
         }
     }
 }
 
-data class PageSize(val width: Float, val height: Float) {
+/*data class PageSize(val width: Float, val height: Float) {
     fun pack(): ByteArray {
         return Buffer().also {
             it.writeFloat(width)
@@ -45,7 +42,7 @@ data class PageSize(val width: Float, val height: Float) {
             return PageSize(data.readFloat(), data.readFloat())
         }
     }
-}
+}*/
 
 expect class PdfRenderer constructor(source: PdfSource) {
     fun render(renderRequest: RenderRequest): RenderResponse

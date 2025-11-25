@@ -1,58 +1,29 @@
 package com.dshatz.pdfmp.compose
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.*
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
-import com.dshatz.pdfmp.*
-import com.dshatz.pdfmp.compose.state.PdfPageState
-import com.dshatz.pdfmp.compose.tools.PartialBitmapRenderer
-import com.dshatz.pdfmp.compose.tools.pageTransformModifier
-import com.dshatz.pdfmp.compose.tools.platformPageTransformModifier
-import com.dshatz.pdfmp.compose.tools.toImageBitmap
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-import kotlin.math.min
+import com.dshatz.pdfmp.ImageTransform
 
-val ImageTransform.viewport get() = IntSize(viewportWidth, viewportHeight)
+//val ImageTransform.viewport get() = IntSize(viewportWidth, viewportHeight)
 
+/*
 @Composable
 internal fun InternalPdfPage(
-    renderer: PdfRenderer,
-    bufferPool: ConsumerBufferPool,
     state: PdfPageState,
     page: Int,
     modifier: Modifier = Modifier,
     scrollable: Boolean = true
 ) {
-    /**
+    val docState = state.docState
+    */
+/**
      * The best image we have now.
-     */
+     *//*
+
     var displayedImage by remember { mutableStateOf<CurrentImage?>(null) }
 
     val requestedTransform by state.requestedTransform
 
-    val ratio by produceState(1f, renderer, page) {
+    val ratio by produceState(1f, docState, page) {
         value = renderer.getAspectRatio(page)
     }
 
@@ -140,6 +111,12 @@ internal fun InternalPdfPage(
         }
     }
 
+    LaunchedEffect(requestedTransform.scale) {
+        if (requestedTransform.scale == 1f) {
+            state.docState.globalHorizontalOffset.value = 0f
+        }
+    }
+
 
 
 
@@ -224,14 +201,16 @@ internal fun InternalPdfPage(
             )
         }
 
-        /*Column(
+        */
+/*Column(
             Modifier.align(Alignment.TopCenter).padding(top = 10.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             DebugBadge("Viewport: ${viewportSize.width} x ${viewportSize.height}")
             DebugBadge("Image size: $imageSize")
-        }*/
+        }*//*
+
     }
 
 
@@ -246,3 +225,4 @@ private fun ColumnScope.DebugBadge(text: String) {
 
 val ImageTransform.offset get() = Offset(offsetX, offsetY)
 
+*/

@@ -3,33 +3,53 @@ package com.dshatz.pdfmp
 import kotlinx.io.*
 
 data class ImageTransform(
-    val scale: Float,
-    val offsetX: Float,
-    val offsetY: Float,
-    val viewportWidth: Int,
-    val viewportHeight: Int
+    val topCutoff: Int,
+    val bottomCutoff: Int,
+    val leftCutoff: Int,
+    val rightCutoff: Int,
+    val scaledWidth: Int,
+    val scaledHeight: Int,
+    val scale: Float
 ) {
+
+    fun size(): Pair<Int, Int> {
+        return scaledWidth - leftCutoff - rightCutoff to scaledHeight - topCutoff - bottomCutoff
+    }
+
+    fun uncut(): ImageTransform {
+        return copy(
+            topCutoff = 0,
+            bottomCutoff = 0,
+            leftCutoff = 0,
+            rightCutoff = 0
+        )
+    }
+
     fun pack(): ByteArray {
         return Buffer().also {
+            it.writeInt(topCutoff)
+            it.writeInt(bottomCutoff)
+            it.writeInt(leftCutoff)
+            it.writeInt(rightCutoff)
+            it.writeInt(scaledWidth)
+            it.writeInt(scaledHeight)
             it.writeFloat(scale)
-            it.writeFloat(offsetX)
-            it.writeFloat(offsetY)
-            it.writeInt(viewportWidth)
-            it.writeInt(viewportHeight)
         }.readByteArray()
     }
 
     companion object {
-        internal const val packedSizeBytes = Float.SIZE_BYTES * 3 + Int.SIZE_BYTES * 2
+        internal const val packedSizeBytes = Int.SIZE_BYTES * 6 + Float.SIZE_BYTES
         fun unpack(data: ByteArray): ImageTransform {
             val buffer = Buffer()
             buffer.write(data, 0, packedSizeBytes)
             return ImageTransform(
-                buffer.readFloat(),
-                buffer.readFloat(),
-                buffer.readFloat(),
                 buffer.readInt(),
-                buffer.readInt()
+                buffer.readInt(),
+                buffer.readInt(),
+                buffer.readInt(),
+                buffer.readInt(),
+                buffer.readInt(),
+                buffer.readFloat()
             )
         }
     }

@@ -10,8 +10,7 @@ import com.dshatz.pdfmp.compose.CurrentImage
 @Composable
 internal actual fun CurrentImage.toImageBitmap(): RecyclableBitmap {
     val imageBitmap = remember(this.loadedTransform) {
-        val width = loadedTransform.viewportWidth
-        val height = loadedTransform.viewportHeight
+        val (width, height) = loadedTransform.size()
 
         val buffer = buffer.buffer
         buffer.rewind()

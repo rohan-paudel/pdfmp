@@ -1,3 +1,7 @@
+@file:OptIn(ExperimentalComposeLibrary::class)
+
+import org.jetbrains.compose.ExperimentalComposeLibrary
+
 plugins {
     alias(libs.plugins.mp)
     alias(libs.plugins.compose)
@@ -21,6 +25,15 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.material3)
             implementation(compose.foundation)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.coroutines.test)
+            implementation(compose.uiTest)
+        }
+        jvmTest.dependencies {
+            implementation(libs.coroutines.test)
+            implementation("io.mockk:mockk:1.14.6")
         }
     }
 }

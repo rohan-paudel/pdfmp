@@ -7,47 +7,35 @@ import androidx.compose.foundation.gestures.calculateCentroidSize
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateRotation
 import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastForEach
-import com.dshatz.pdfmp.compose.state.PdfPageState
+import com.dshatz.pdfmp.compose.state.PdfState
 import kotlin.math.PI
 import kotlin.math.abs
 
 /**
  * Platform-specific modifier for gestures.
  */
-expect fun Modifier.platformPageTransformModifier(pageState: PdfPageState, enablePan: Boolean): Modifier
+expect fun Modifier.platformPageTransformModifier(
+    state: PdfState,
+): Modifier
 
 
 /**
  * Common modifier for transform gestures. Includes [platformPageTransformModifier].
  */
-fun Modifier.pageTransformModifier(pageState: PdfPageState, enablePan: Boolean): Modifier = composed {
-    val scale by pageState.docState.scale
-
-    pointerInput(Unit) {
-        detectTransformGestures(consumePanGestures = enablePan) { centroid, pan, zoom, _ ->
-            val oldScale = scale
-            val newScale = (scale * zoom).coerceScale()
-
-            val actualZoomFactor = if (oldScale == 0f) 1f else newScale / oldScale
-
-            val offsetInContent = centroid - pageState.offsetState.value
-            val delta = -offsetInContent * (actualZoomFactor - 1f) + pan
-
-            pageState.dispatchScroll(delta)
-            pageState.docState.setScale(newScale)
+fun Modifier.pageTransformModifier(state: PdfState): Modifier = composed {
+    Modifier.pointerInput(Unit) {
+        detectTransformGestures { centroid, _, zoom, _ ->
+            state.zoom(zoom, centroid)
         }
-    }.then(platformPageTransformModifier(pageState, enablePan))
+    }.then(Modifier.platformPageTransformModifier(state))
 }
 
 suspend fun PointerInputScope.detectTransformGestures(

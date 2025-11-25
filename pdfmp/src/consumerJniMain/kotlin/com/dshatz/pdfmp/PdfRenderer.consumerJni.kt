@@ -15,7 +15,6 @@ actual class PdfRenderer actual constructor(private val source: PdfSource) {
         )
         return RenderResponse(
             response.transform,
-            response.pageSize
         )
     }
 

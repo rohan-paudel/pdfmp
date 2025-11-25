@@ -86,61 +86,49 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
         return runCatching {
             val document = doc ?: throw IllegalStateException("Document is not open")
 
-            val scale = transform.scale
-            val viewportWidth = transform.viewportWidth
-            val viewportHeight = transform.viewportHeight
-            val offsetX = transform.offsetX
-            val offsetY = transform.offsetY
-
             val page = document.openPage(pageIndex)
 
             try {
-                val unscaledPageWidth = FPDF_GetPageWidthF(page)
-                val unscaledPageHeight = FPDF_GetPageHeightF(page)
-                val rawPageWidth = (unscaledPageWidth * scale).toInt()
-                val rawPageHeight = (unscaledPageHeight * scale).toInt()
+                with (transform) {
+                    val sliceHeight = scaledHeight - topCutoff - bottomCutoff
+                    val sliceWidth = scaledWidth - leftCutoff - rightCutoff
 
-                if (viewportWidth <= 0 || viewportHeight <= 0) {
-                    throw IllegalStateException("Invalid page dimensions: $viewportWidth x $viewportHeight")
-                }
+                    // Safety check
+                    if (sliceHeight <= 0 || sliceWidth <= 0) error("sliceHeight or sliceWidth is negative: $sliceWidth $sliceHeight")
+                    val bitmap = FPDFBitmap_CreateEx(sliceWidth, sliceHeight, FPDFBitmap_BGRx, null, 0)
+                        ?: throw IllegalStateException("Failed to create bitmap")
 
-                val fitScale = viewportWidth.toFloat() / rawPageWidth
-                val finalScale = scale * fitScale
+                    val startX = -leftCutoff
+                    val startY = -topCutoff
+                    try {
+                        FPDFBitmap_FillRect(bitmap, 0, 0, sliceWidth, sliceHeight, 0xFFFFFFFFu)
+                        FPDF_RenderPageBitmap(
+                            bitmap,
+                            page,
+                            startX,
+                            startY,
+                            scaledWidth,
+                            scaledHeight,
+                            0,
+                            0
+                        )
 
-                val totalScaledWidth = (rawPageWidth * finalScale).toInt()
-                val totalScaledHeight = (rawPageHeight * finalScale).toInt()
+                        val bufferPtr: CPointer<out CPointed> = FPDFBitmap_GetBuffer(bitmap)?.reinterpret()
+                            ?: throw IllegalStateException("Failed to get bitmap buffer")
 
-                val bitmap = FPDFBitmap_CreateEx(viewportWidth, viewportHeight, FPDFBitmap_BGRx, null, 0)
-                    ?: throw IllegalStateException("Failed to create bitmap")
-
-                try {
-                    FPDFBitmap_FillRect(bitmap, 0, 0, viewportWidth, viewportHeight, 0xFFFFFFFFu)
-                    FPDF_RenderPageBitmap(
-                        bitmap,
-                        page,
-                        offsetX.toInt(),
-                        offsetY.toInt(),
-                        totalScaledWidth,
-                        totalScaledHeight,
-                        0,
-                        0
-                    )
-
-                    val bufferPtr: CPointer<out CPointed> = FPDFBitmap_GetBuffer(bitmap)?.reinterpret()
-                        ?: throw IllegalStateException("Failed to get bitmap buffer")
-
-                    val byteCount = viewportWidth * viewportHeight * 4
-                    memScoped {
-                        val targetPtr: CPointer<out CPointed> = bufferAddress.toCPointer<CPointed>()
-                            ?: throw IllegalArgumentException("Invalid target memory address $bufferAddress")
-                        memcpy(targetPtr, bufferPtr, byteCount.convert())
-                    }
+                        val byteCount = sliceWidth * sliceHeight * 4
+                        memScoped {
+                            val targetPtr: CPointer<out CPointed> = bufferAddress.toCPointer<CPointed>()
+                                ?: throw IllegalArgumentException("Invalid target memory address $bufferAddress")
+                            memcpy(targetPtr, bufferPtr, byteCount.convert())
+                        }
 //                    val pixelData: ByteArray = bufferPtr.readBytes(byteCount)
 
-                    return RenderResponse(transform, PageSize(unscaledPageWidth, unscaledPageHeight))
+                        return RenderResponse(transform)
 
-                } finally {
-                    FPDFBitmap_Destroy(bitmap)
+                    } finally {
+                        FPDFBitmap_Destroy(bitmap)
+                    }
                 }
             } finally {
                 FPDF_ClosePage(page)
