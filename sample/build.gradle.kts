@@ -16,7 +16,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":pdfmp-compose"))
+            implementation(project(":sample-shared"))
 //            implementation("com.dshatz.pdfmp:pdfmp-compose-jvm:unspecified")
             implementation(compose.runtime)
             implementation(compose.material3)

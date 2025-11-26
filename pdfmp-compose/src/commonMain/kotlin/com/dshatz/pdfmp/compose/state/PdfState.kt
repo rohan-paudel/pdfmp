@@ -18,20 +18,23 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpSize
 import com.dshatz.pdfmp.ConsumerBuffer
 import com.dshatz.pdfmp.ConsumerBufferPool
+import com.dshatz.pdfmp.InitLib
 import com.dshatz.pdfmp.model.PageTransform
 import com.dshatz.pdfmp.PdfRenderer
 import com.dshatz.pdfmp.model.RenderRequest
 import com.dshatz.pdfmp.model.RenderResponse
 import com.dshatz.pdfmp.source.PdfSource
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.min
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 @Composable
-fun rememberPdfState(pdfSource: PdfSource): PdfState {
+fun rememberPdfState(pdfSource: PdfSource, pageRange: IntRange = 0..Int.MAX_VALUE): PdfState {
     val scope = rememberCoroutineScope()
-    val state = remember { PdfState(pdfSource, scope = scope) }
+    val state = remember { PdfState(pdfSource, pageRange = pageRange, scope = scope) }
     state.OpenDisposableDocument()
     return state
 }
@@ -39,6 +42,7 @@ fun rememberPdfState(pdfSource: PdfSource): PdfState {
 @OptIn(ExperimentalTime::class)
 data class PdfState(
     val pdfSource: PdfSource,
+    val pageRange: IntRange = 0..Int.MAX_VALUE,
     val scale: MutableState<Float> = mutableFloatStateOf(1f),
     val viewport: MutableState<Size> = mutableStateOf(Size(1f, 1f)),
     val scope: CoroutineScope
@@ -48,7 +52,7 @@ data class PdfState(
     lateinit var horizontalScrollState: ScrollState
 
     private lateinit var bufferPool: ConsumerBufferPool
-    lateinit var pages: List<PdfPageState>
+    lateinit var pages: LinkedHashMap<Int, PdfPageState>
 
     private val renderingY = mutableFloatStateOf(0f)
     private val renderingX = mutableFloatStateOf(0f)
@@ -71,7 +75,7 @@ data class PdfState(
     }
 
     private fun scaledPageHeight(pageIdx: Int, scaledWidth: Float = scaledPageWidth(viewport, scale)): Float {
-        return scaledWidth / pages[pageIdx].aspectRatio
+        return scaledWidth / (pages[pageIdx]!!.aspectRatio)
     }
 
     @Composable
@@ -122,7 +126,7 @@ data class PdfState(
 
         val maxX = (viewport.value.width * scale.value - viewport.value.width).coerceAtLeast(0f)
         var totalContentHeight = 0f
-        for (i in pages.indices) {
+        for (i in pages.keys) {
             totalContentHeight += scaledPageHeight(i)
         }
 
@@ -184,7 +188,7 @@ data class PdfState(
         val visiblePages = mutableListOf<VisiblePageInfo>()
         var accumulatedHeight = 0f
 
-        for (i in pages.indices) {
+        for ((i, _) in pages) {
             val pageHeight = scaledPageHeight(i, currentScaledWidth)
             val pageTop = accumulatedHeight
             val pageBottom = pageTop + pageHeight
@@ -209,7 +213,7 @@ data class PdfState(
     private fun getPageAndOffsetForAbsoluteY(absY: Float, s: Float): Pair<Int, Int> {
         var acc = 0f
         val w = viewport.value.width * s
-        for(i in pages.indices) {
+        for(i in pages.keys) {
             val h = scaledPageHeight(i, w)
             if (acc + h > absY) return i to (absY - acc).toInt()
             acc += h
@@ -264,15 +268,21 @@ data class PdfState(
     val isInitialized: MutableState<Boolean> = mutableStateOf(false)
 
     fun initPages(renderer: PdfRenderer) {
-        pages = renderer.getPageRatios().mapIndexed { pageIdx, ratio ->
-            PdfPageState(
+        val allRatios = renderer.getPageRatios()
+        val truncated = allRatios.withIndex()
+            .drop(pageRange.first).take(min(pageRange.last - pageRange.first, allRatios.size - pageRange.first) + 1)
+        val map = linkedMapOf<Int, PdfPageState>()
+        truncated.forEach { (pageIdx, ratio) ->
+            map[pageIdx] = PdfPageState(
                 pageIdx,
                 aspectRatio = ratio
             )
         }
+        pages = map
     }
     @Composable
     fun OpenDisposableDocument() {
+        InitLib().init()
         DisposableEffect(pdfSource) {
             renderer = PdfRenderer(pdfSource)
             bufferPool = ConsumerBufferPool()

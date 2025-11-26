@@ -41,7 +41,7 @@ kotlin {
 }
 
 android {
-    namespace = "com.dshatz.pdfmp.sample"
+    namespace = "com.dshatz.pdfmp.sampleshared"
     compileSdk = 36
     defaultConfig {
         minSdk = 24

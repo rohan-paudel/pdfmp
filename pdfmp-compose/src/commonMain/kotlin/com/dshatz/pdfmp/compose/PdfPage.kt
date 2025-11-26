@@ -1,22 +1,2 @@
 package com.dshatz.pdfmp.compose
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import com.dshatz.pdfmp.ConsumerBufferPool
-import com.dshatz.pdfmp.PdfRenderer
-import com.dshatz.pdfmp.source.PdfSource
-
-@Composable
-fun PdfPage(source: PdfSource, modifier: Modifier = Modifier) {
-    val renderer = remember(source) { PdfRenderer(source) }
-    val bufferPool = remember(source) { ConsumerBufferPool() }
-    DisposableEffect(Unit) {
-        onDispose {
-            renderer.close()
-        }
-    }
-    /*val pageState = rememberPageRenderState(rememberDocumentState())
-    InternalPdfPage(renderer, bufferPool, pageState, 0, modifier = modifier)*/
-}

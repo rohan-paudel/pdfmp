@@ -3,12 +3,12 @@ package com.dshatz.pdfmp
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
+import kotlin.use
 
-actual object NativeLibLoader {
-
+actual class InitLib {
     private val osName = System.getProperty("os.name").lowercase(Locale.ENGLISH)
     private val osArch = System.getProperty("os.arch").lowercase(Locale.ENGLISH)
-    actual fun load() {
+    actual fun init() {
         try {
             loadLibraryFromJar("pdfium")
             loadLibraryFromJar("pdfmp")
@@ -25,7 +25,7 @@ actual object NativeLibLoader {
 
         val resourcePath = "/lib/$platformDir/$fileName"
 
-        val resourceStream = NativeLibLoader::class.java.getResourceAsStream(resourcePath)
+        val resourceStream = InitLib::class.java.getResourceAsStream(resourcePath)
             ?: throw UnsatisfiedLinkError("Native library not found in JAR at: $resourcePath")
 
         val tempFile = File.createTempFile(prefix + baseName, ".$extension")

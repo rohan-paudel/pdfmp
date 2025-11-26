@@ -44,46 +44,50 @@ fun PdfView(
     val listState = rememberLazyListState()
     val horizontalScroll = rememberScrollState()
 
-    LaunchedEffect(Unit) {
-        state.bind(listState, horizontalScroll)
-    }
+    if (state.isInitialized.value) {
+        LaunchedEffect(Unit) {
+            state.bind(listState, horizontalScroll)
+        }
 
-    Box(
-        modifier = modifier.pageTransformModifier(state).onGloballyPositioned {
-            // Report real viewport size.
-            state.setViewport(it.size.toSize())
-        }
-    ) {
-        LazyColumn(
-            state = listState,
-            userScrollEnabled = false,
-            modifier = Modifier.matchParentSize().platformScrollableModifier(state)
+        Box(
+            modifier = modifier.pageTransformModifier(state).onGloballyPositioned {
+                // Report real viewport size.
+                state.setViewport(it.size.toSize())
+            }
         ) {
-            FullDocumentBoxes(state)
+            LazyColumn(
+                state = listState,
+                userScrollEnabled = false,
+                modifier = Modifier.matchParentSize().platformScrollableModifier(state)
+            ) {
+                FullDocumentBoxes(state)
+            }
+            BaseImage(
+                state,
+                modifier = Modifier.matchParentSize()
+            )
+            PdfViewport(
+                state,
+                modifier = Modifier.matchParentSize()
+            )
         }
-        BaseImage(
-            state,
-            modifier = Modifier.matchParentSize()
-        )
-        PdfViewport(
-            state,
-            modifier = Modifier.matchParentSize()
-        )
     }
 }
 
 
 private fun LazyListScope.FullDocumentBoxes(state: PdfState) {
-    items(state.pages.size) { pageIdx ->
-        val size by state.rememberScaledPageSize(pageIdx)
-        Column(Modifier.requiredSize(size), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text(
-                pageIdx.toString(),
-                fontSize = 60.sp,
-                color = Color.Gray,
-                modifier = Modifier.alpha(0.5f).zIndex(100f)
-            )
-            Text(size.toString())
+    state.pages.forEach { (pageIdx, page) ->
+        item(pageIdx) {
+            val size by state.rememberScaledPageSize(pageIdx)
+            Column(Modifier.requiredSize(size), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Text(
+                    pageIdx.toString(),
+                    fontSize = 60.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.alpha(0.5f).zIndex(100f)
+                )
+                Text(size.toString())
+            }
         }
     }
 }

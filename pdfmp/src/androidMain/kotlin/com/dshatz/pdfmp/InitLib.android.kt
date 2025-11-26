@@ -1,13 +1,9 @@
 package com.dshatz.pdfmp
 
-actual object NativeLibLoader {
-    actual fun load() {
+actual class InitLib {
+    actual fun init() {
         System.loadLibrary("pdfium")
         System.loadLibrary("pdfmp")
         PDFBridge.initNative()
-    }
-
-    init {
-        load()
     }
 }

@@ -191,33 +191,43 @@ android {
 }
 
 
-tasks.named<Jar>("jvmJar") {
+val generateNativeResources by tasks.registering(Sync::class) {
+    group = "build"
+    description = "Copies native libraries to the build directory to be included as resources"
+
+    // Output everything to build/generated/native-libs
+    val outputDir = layout.buildDirectory.dir("generated/native-libs")
+    into(outputDir)
+
+    // Handle duplicates just in case
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
     desktopTargetMap.forEach { (targetName, resourcePath) ->
-        val target = kotlin.targets.findByName(targetName) as? KotlinNativeTarget
+        val target = kotlin.targets.findByName(targetName) as? org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 
         if (target != null) {
             val sharedLib = target.binaries.findSharedLib("release")
             if (sharedLib != null) {
                 dependsOn(sharedLib.linkTaskProvider)
                 from(sharedLib.outputFile) {
+                    // Note: This creates the structure inside the generated folder
                     into("lib/$resourcePath")
                 }
             }
 
             val prebuiltDir = rootProject.project("pdfium-binaries").file("binaries/$targetName")
-
             if (prebuiltDir.exists()) {
                 from(prebuiltDir) {
                     include("*.so", "*.dll", "*.dylib")
                     into("lib/$resourcePath")
                 }
-            } else {
-                logger.warn("Prebuilt binaries not found for $targetName at $prebuiltDir")
             }
         }
     }
+}
 
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+kotlin.sourceSets.getByName("jvmMain") {
+    resources.srcDir(generateNativeResources)
 }
 
 dependencies {
