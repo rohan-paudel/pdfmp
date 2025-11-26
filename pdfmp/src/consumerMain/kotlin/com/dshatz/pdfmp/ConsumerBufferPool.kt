@@ -4,20 +4,23 @@ import com.dshatz.pdfmp.model.PageTransform
 import com.dshatz.pdfmp.model.SizeB
 
 class ConsumerBufferPool {
-    private val bufferFullPage: MutableMap<Int, ConsumerBuffer> = mutableMapOf()
+
+    private val buffers: LinkedHashSet<ConsumerBuffer> =  linkedSetOf()
     private var bufferViewport: ConsumerBuffer? = null
 
     fun getBufferPage(transform: PageTransform): ConsumerBuffer {
         val neededCapacity = transform.bufferSize
         val page = transform.pageIndex
-        val buffer = bufferFullPage[page]
-        if (buffer == null || buffer.capacity() < neededCapacity) {
-            bufferFullPage[page] = ConsumerBufferUtil.allocate(neededCapacity)
+        val buffer = buffers.firstOrNull { it.isFree && it.capacity() >= neededCapacity } ?: run {
+            val newBuffer = ConsumerBufferUtil.allocate(neededCapacity)
+            buffers.add(newBuffer)
             println("[$page] Allocated ${neededCapacity.stringMB} ${transform.scaledWidth} x ${transform.scaledHeight}")
-            println("Total buffer memory: ${totalBufferMemory.stringMB}")
+            println("Total buffer memory: ${totalBufferMemory.stringMB}, Unfree: ${totalUnfreeBufferMemory.stringMB}")
+            newBuffer
         }
-        cleanDistant(page)
-        return bufferFullPage[page]!!
+        buffer.setUnfree()
+//        cleanDistant(page)
+        return buffer
     }
 
     fun getBufferViewport(transforms: List<PageTransform>): ConsumerBuffer {
@@ -34,13 +37,13 @@ class ConsumerBufferPool {
     }
 
     private val totalBufferMemory: SizeB
-        get() {
-            val fullPageBuffers = bufferFullPage.values.fold(SizeB.ZERO) { total, new -> total + new.capacity() }
-            return fullPageBuffers + (bufferViewport?.capacity() ?: SizeB.ZERO)
-    }
+        get() = buffers.fold(SizeB.ZERO) { s, buffer -> s + buffer.capacity() }
+
+    private val totalUnfreeBufferMemory: SizeB
+        get() = buffers.filter { !it.isFree }.fold(SizeB.ZERO) { s, buffer -> s + buffer.capacity() }
 
 
-    fun cleanDistant(currentPage: Int) {
+    /*fun cleanDistant(currentPage: Int) {
         bufferFullPage.keys.removeAll {
             val remove = it !in (currentPage - BUFFER_PAGE_WINDOW)..(currentPage + BUFFER_PAGE_WINDOW)
             if (remove) {
@@ -49,7 +52,7 @@ class ConsumerBufferPool {
             remove
 
         }
-    }
+    }*/
 
     companion object {
         const val BUFFER_PAGE_WINDOW = 2

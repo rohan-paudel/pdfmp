@@ -2,7 +2,9 @@ package com.dshatz.pdfmp
 
 import com.dshatz.pdfmp.model.SizeB
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.MemScope
 import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.toLong
 import kotlinx.cinterop.usePinned
 
@@ -19,6 +21,15 @@ actual class ConsumerBuffer(val byteArray: ByteArray) {
     }
 
     actual fun free() {
+        _isFree = true
+    }
+
+    private var _isFree: Boolean = true
+
+    actual val isFree: Boolean get() = _isFree
+
+    actual fun setUnfree() {
+        _isFree = false
     }
 }
 

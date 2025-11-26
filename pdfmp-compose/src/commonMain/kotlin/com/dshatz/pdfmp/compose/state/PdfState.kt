@@ -114,14 +114,6 @@ data class PdfState(
         horizontalScrollOffset.value = offset
     }
 
-    fun syncFromLayout(index: Int, offset: Int, scrollX: Int) {
-        if (Clock.System.now().toEpochMilliseconds() - lastGestureTime > 200) {
-            val absoluteY = calculateAbsoluteYFromIndex(index, offset)
-            renderingY.floatValue = absoluteY
-            renderingX.floatValue = scrollX.toFloat()
-        }
-    }
-
     fun onScroll(delta: Offset): Offset {
         lastGestureTime = Clock.System.now().toEpochMilliseconds()
 
@@ -129,8 +121,15 @@ data class PdfState(
         val currentY = renderingY.floatValue
 
         val maxX = (viewport.value.width * scale.value - viewport.value.width).coerceAtLeast(0f)
+        var totalContentHeight = 0f
+        for (i in pages.indices) {
+            totalContentHeight += scaledPageHeight(i)
+        }
+
+        // 2. Max Y is Total Height minus Viewport Height
+        val maxY = (totalContentHeight - viewport.value.height).coerceAtLeast(0f)
         val newX = (currentX - delta.x).coerceIn(0f, maxX)
-        val newY = (currentY - delta.y).coerceAtLeast(0f)
+        val newY = (currentY - delta.y).coerceIn(0f, maxY)
 
         renderingX.floatValue = newX
         renderingY.floatValue = newY
@@ -205,15 +204,6 @@ data class PdfState(
             if (accumulatedHeight > currentY + viewportHeight) break
         }
         return visiblePages
-    }
-
-    private fun calculateAbsoluteYFromIndex(index: Int, offset: Int): Float {
-        var y = 0f
-        val currentScaledWidth = viewport.value.width * scale.value
-        for (i in 0 until index) {
-            if (i < pages.size) y += scaledPageHeight(i, currentScaledWidth)
-        }
-        return y + offset
     }
 
     private fun getPageAndOffsetForAbsoluteY(absY: Float, s: Float): Pair<Int, Int> {

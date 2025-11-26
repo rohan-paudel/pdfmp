@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.toIntSize
 import com.dshatz.pdfmp.model.PageTransform
 import kotlin.math.min
 
+/*
 @Composable
 fun PartialBitmapRenderer(
     bitmap: ImageBitmap,
@@ -45,6 +46,7 @@ fun PartialBitmapRenderer(
         )
     }
 }
+*/
 
 
 @Composable

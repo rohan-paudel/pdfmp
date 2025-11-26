@@ -14,7 +14,17 @@ actual class ConsumerBuffer(val buffer: ByteBuffer) {
         return SizeB(buffer.capacity())
     }
 
-    actual fun free() {}
+
+    actual fun free() {
+        _isFree = true
+    }
+    var _isFree = true
+    actual val isFree: Boolean get() = _isFree
+
+
+    actual fun setUnfree() {
+        _isFree = false
+    }
 }
 
 actual object ConsumerBufferUtil {
