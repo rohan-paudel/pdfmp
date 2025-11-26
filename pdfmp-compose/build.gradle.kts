@@ -23,7 +23,7 @@ kotlin {
     val xcf = XCFramework()
     iosTargets.forEach {
         it.binaries.framework {
-            baseName = "pdfmp"
+            baseName = "pdfmpcompose"
             xcf.add(this)
         }
     }
@@ -57,7 +57,7 @@ android {
 
 
 mavenPublishing {
-//    signAllPublications()
+    signAllPublications()
     publishToMavenCentral(true)
     coordinates("com.dshatz.pdfmp", "pdfmp-compose", project.version.toString())
 

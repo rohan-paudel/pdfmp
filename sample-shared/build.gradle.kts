@@ -1,8 +1,10 @@
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+
 plugins {
     alias(libs.plugins.mp)
     alias(libs.plugins.compose)
     alias(libs.plugins.compose.kt)
-    alias(libs.plugins.android.app)
+    alias(libs.plugins.android.lib)
 }
 
 kotlin {
@@ -13,6 +15,15 @@ kotlin {
         }
     }
     androidTarget()
+    val iosTargets = listOf(iosX64(), iosArm64(), iosSimulatorArm64())
+
+    val xcf = XCFramework()
+    iosTargets.forEach {
+        it.binaries.framework {
+            baseName = "pdfmpcompose"
+            xcf.add(this)
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {
@@ -22,14 +33,10 @@ kotlin {
             implementation(compose.material3)
             implementation(compose.components.resources)
         }
-        jvmMain.dependencies {
+        /*jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(compose.desktop.common)
-
-        }
-        androidMain.dependencies {
-            implementation("androidx.activity:activity-compose:1.11.0")
-        }
+        }*/
     }
 }
 
@@ -39,8 +46,4 @@ android {
     defaultConfig {
         minSdk = 24
     }
-}
-
-compose.desktop.application {
-    mainClass = "com.dshatz.pdfmp.MainKt"
 }

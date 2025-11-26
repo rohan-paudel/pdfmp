@@ -230,6 +230,9 @@ dependencies {
     add("kspAndroidNativeX86", libs.jni.ksp)
     add("kspMacosX64", libs.jni.ksp)
     add("kspMacosArm64", libs.jni.ksp)
+    add("kspIosX64", libs.kni.ksp)
+    add("kspArm64", libs.kni.ksp)
+    add("kspIosSimulatorArm64", libs.kni.ksp)
 }
 
 mavenPublishing {
