@@ -9,5 +9,9 @@ internal expect fun CurrentImage.toImageBitmap(): RecyclableBitmap
 
 data class RecyclableBitmap(
     val imageBitmap: ImageBitmap,
-    val onRecycle: () -> Unit
-)
+    private val onRecycle: () -> Unit
+) {
+    fun free() {
+        onRecycle()
+    }
+}

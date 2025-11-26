@@ -1,8 +1,5 @@
 package com.dshatz.pdfmp.compose
 
-import androidx.compose.ui.unit.IntSize
-import com.dshatz.pdfmp.ImageTransform
-
 //val ImageTransform.viewport get() = IntSize(viewportWidth, viewportHeight)
 
 /*

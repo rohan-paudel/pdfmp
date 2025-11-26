@@ -1,5 +1,6 @@
 package com.dshatz.pdfmp
 
+import com.dshatz.pdfmp.model.SizeB
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.toLong
@@ -13,14 +14,17 @@ actual class ConsumerBuffer(val byteArray: ByteArray) {
         }
     }
 
-    actual fun capacity(): Int {
-        return byteArray.size
+    actual fun capacity(): SizeB {
+        return SizeB(byteArray.size)
+    }
+
+    actual fun free() {
     }
 }
 
 actual object ConsumerBufferUtil {
-    actual fun allocate(size: Int): ConsumerBuffer {
+    actual fun allocate(size: SizeB): ConsumerBuffer {
         println("Allocating buffer ByteArray($size)")
-        return ConsumerBuffer(ByteArray(size))
+        return ConsumerBuffer(ByteArray(size.bytes))
     }
 }

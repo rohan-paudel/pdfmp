@@ -18,14 +18,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpSize
 import com.dshatz.pdfmp.ConsumerBuffer
 import com.dshatz.pdfmp.ConsumerBufferPool
-import com.dshatz.pdfmp.ImageTransform
+import com.dshatz.pdfmp.model.PageTransform
 import com.dshatz.pdfmp.PdfRenderer
-import com.dshatz.pdfmp.RenderRequest
-import com.dshatz.pdfmp.RenderResponse
+import com.dshatz.pdfmp.model.RenderRequest
+import com.dshatz.pdfmp.model.RenderResponse
 import com.dshatz.pdfmp.source.PdfSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
@@ -33,7 +32,7 @@ import kotlin.time.ExperimentalTime
 fun rememberPdfState(pdfSource: PdfSource): PdfState {
     val scope = rememberCoroutineScope()
     val state = remember { PdfState(pdfSource, scope = scope) }
-    state.OpenDocument()
+    state.OpenDisposableDocument()
     return state
 }
 
@@ -44,12 +43,17 @@ data class PdfState(
     val viewport: MutableState<Size> = mutableStateOf(Size(1f, 1f)),
     val scope: CoroutineScope
 ) {
-
     lateinit var renderer: PdfRenderer
     lateinit var listState: LazyListState
     lateinit var horizontalScrollState: ScrollState
 
-    // Call this inside PdfView to bind everything together
+    private lateinit var bufferPool: ConsumerBufferPool
+    lateinit var pages: List<PdfPageState>
+
+    private val renderingY = mutableFloatStateOf(0f)
+    private val renderingX = mutableFloatStateOf(0f)
+    private var lastGestureTime = 0L
+
     fun bind(
         listState: LazyListState,
         horizontalScrollState: ScrollState,
@@ -57,11 +61,6 @@ data class PdfState(
         this.listState = listState
         this.horizontalScrollState = horizontalScrollState
     }
-    /**
-     * A buffer pool unique to this document.
-     */
-    private lateinit var bufferPool: ConsumerBufferPool
-    lateinit var pages: List<PdfPageState>
 
     internal val visiblePages: State<List<VisiblePageInfo>> = derivedStateOf<List<VisiblePageInfo>> {
         calculateVisiblePages()
@@ -70,9 +69,11 @@ data class PdfState(
     private fun scaledPageWidth(viewport: MutableState<Size>, scale: State<Float>): Float {
         return viewport.value.width * scale.value
     }
+
     private fun scaledPageHeight(pageIdx: Int, scaledWidth: Float = scaledPageWidth(viewport, scale)): Float {
         return scaledWidth / pages[pageIdx].aspectRatio
     }
+
     @Composable
     internal fun rememberScaledPageWidth(page: Int): State<Float> {
         return remember(page, scale.value, viewport.value) {
@@ -109,158 +110,39 @@ data class PdfState(
 
     private val horizontalScrollOffset = mutableStateOf(0)
 
-    fun reportHorizontalOffset(
-        offset: Int
-    ) {
+    fun reportHorizontalOffset(offset: Int) {
         horizontalScrollOffset.value = offset
     }
 
-    /*private fun calculateVisiblePages(): List<VisiblePageInfo> {
-        if (!isInitialized.value || pages.isEmpty()) return emptyList()
-
-        val viewport = viewport.value
-        val scrollX = renderingX.value
-        val scaledWidth = scaledPageWidth(this.viewport, scale)
-
-        val leftCutoff = scrollX.coerceIn(0f, scaledWidth)
-        val rightCutoff = (scaledWidth - (scrollX + viewport.width)).coerceAtLeast(0f).toInt()
-
-        if (scaledWidth - leftCutoff - rightCutoff < 1f) return emptyList()
-
-        var offset = -firstVisibleOffset.value
-        var nextPageIdx = firstVisible.value
-        val visiblePages = mutableListOf<VisiblePageInfo>()
-
-        while (offset < viewport.height && nextPageIdx < pages.size) {
-            val scaledHeight = scaledPageHeight(nextPageIdx, scaledWidth)
-
-            val pageTop = offset
-            val pageBottom = pageTop + scaledHeight
-
-            val rawTopCutoff = if (pageTop < 0f) abs(pageTop) else 0f
-            val topCutoff = rawTopCutoff.coerceAtMost(scaledHeight)
-
-            val rawBottomCutoff = if (pageBottom > viewport.height) pageBottom - viewport.height else 0f
-            val bottomCutoff = rawBottomCutoff.coerceAtLeast(0f)
-
-            val visibleHeight = scaledHeight - topCutoff - bottomCutoff
-
-            offset += scaledHeight
-
-            if (visibleHeight >= 1f) {
-                visiblePages += VisiblePageInfo(
-                    nextPageIdx,
-                    topCutoff,
-                    bottomCutoff,
-                    leftCutoff,
-                    rightCutoff,
-                    scaledWidth,
-                    scaledHeight
-                )
-            }
-            nextPageIdx++
-        }
-        return visiblePages
-    }*/
-
-    private fun calculateVisiblePages(): List<VisiblePageInfo> {
-        if (!isInitialized.value || pages.isEmpty()) return emptyList()
-
-        val currentY = renderingY.floatValue // <--- KEY CHANGE
-        val currentX = renderingX.floatValue
-        val viewportHeight = viewport.value.height
-        val viewportWidth = viewport.value.width
-        val currentScale = scale.value
-        val currentScaledWidth = viewportWidth * currentScale
-
-        val visiblePages = mutableListOf<VisiblePageInfo>()
-        var accumulatedHeight = 0f
-
-        for (i in pages.indices) {
-            val pageHeight = scaledPageHeight(i, currentScaledWidth)
-            val pageTop = accumulatedHeight
-            val pageBottom = pageTop + pageHeight
-
-            if (pageBottom > currentY && pageTop < currentY + viewportHeight) {
-                // page i is visible!
-
-                // How much of the top is hidden?
-                val topCutoff = (currentY - pageTop).coerceAtLeast(0f)
-
-                // How much of the bottom is hidden?
-                val bottomCutoff = (pageBottom - (currentY + viewportHeight)).coerceAtLeast(0f)
-
-                val leftCutoff = currentX.coerceIn(0f, currentScaledWidth)
-                val rightCutoff = (currentScaledWidth - (currentX + viewportWidth)).coerceAtLeast(0f)
-
-                visiblePages.add(VisiblePageInfo(
-                    i, topCutoff, bottomCutoff, leftCutoff.toInt(), rightCutoff.toInt(),
-                    currentScaledWidth, pageHeight
-                ))
-            }
-
-            accumulatedHeight += pageHeight
-            if (accumulatedHeight > currentY + viewportHeight) break
-        }
-        return visiblePages
-    }
-
-    fun render(page: Int, transform: ImageTransform): Pair<RenderResponse, ConsumerBuffer> {
-        val buffer = bufferPool.getBuffer(page, transform)
-        return buffer.withAddress {
-            val response = renderer.render(
-                RenderRequest(
-                    page,
-                    transform,
-                    it
-                )
-            )
-            response to buffer
-        }
-    }
-
-    @Composable
-    fun produceImageTransforms(): State<Map<Int, ImageTransform>> {
-        return derivedStateOf {
-            visiblePages.value.associate {
-                it.page to ImageTransform(
-                    it.topCutoff.toInt(),
-                    it.bottomCutoff.toInt(),
-                    it.leftCutoff,
-                    it.rightCutoff,
-                    it.scaledWidth.toInt(),
-                    it.scaledHeight.toInt(),
-                    scale.value
-                )
-            }
-        }
-    }
-
-    private val renderingY = mutableFloatStateOf(0f)
-    private val renderingX = mutableFloatStateOf(0f)
-
-    private var lastZoomTime = 0L
-
     fun syncFromLayout(index: Int, offset: Int, scrollX: Int) {
-        // We only accept layout updates if we are not currently zooming
-        if (Clock.System.now().toEpochMilliseconds() - lastZoomTime > 200) {
+        if (Clock.System.now().toEpochMilliseconds() - lastGestureTime > 200) {
             val absoluteY = calculateAbsoluteYFromIndex(index, offset)
             renderingY.floatValue = absoluteY
             renderingX.floatValue = scrollX.toFloat()
         }
     }
 
-    private fun calculateAbsoluteYFromIndex(index: Int, offset: Int): Float {
-        var y = 0f
-        val currentScaledWidth = viewport.value.width * scale.value
-        for (i in 0 until index) {
-            if (i < pages.size) y += scaledPageHeight(i, currentScaledWidth)
-        }
-        return y + offset
+    fun onScroll(delta: Offset): Offset {
+        lastGestureTime = Clock.System.now().toEpochMilliseconds()
+
+        val currentX = renderingX.floatValue
+        val currentY = renderingY.floatValue
+
+        val maxX = (viewport.value.width * scale.value - viewport.value.width).coerceAtLeast(0f)
+        val newX = (currentX - delta.x).coerceIn(0f, maxX)
+        val newY = (currentY - delta.y).coerceAtLeast(0f)
+
+        renderingX.floatValue = newX
+        renderingY.floatValue = newY
+        reportHorizontalOffset(newX.toInt())
+
+        updateUiScrollPosition(newX, newY, scale.value)
+
+        return delta
     }
 
     fun zoom(zoomFactor: Float, centroid: Offset) {
-        lastZoomTime = Clock.System.now().toEpochMilliseconds()
+        lastGestureTime = Clock.System.now().toEpochMilliseconds()
 
         val currentScale = scale.value
         val newScale = (currentScale * zoomFactor).coerceIn(1f, 5.0f)
@@ -277,16 +159,61 @@ data class PdfState(
         scale.value = newScale
         renderingY.floatValue = newRenderingY.coerceAtLeast(0f)
         renderingX.floatValue = newRenderingX.coerceAtLeast(0f)
+        reportHorizontalOffset(newRenderingX.toInt())
 
-        val (targetIndex, targetOffset) = getPageAndOffsetForAbsoluteY(
-            renderingY.floatValue,
-            newScale
-        )
+        updateUiScrollPosition(newRenderingX.coerceAtLeast(0f), newRenderingY.coerceAtLeast(0f), newScale)
+    }
 
+    private fun updateUiScrollPosition(x: Float, y: Float, s: Float) {
+        val (targetIndex, targetOffset) = getPageAndOffsetForAbsoluteY(y, s)
         scope.launch {
             listState.scrollToItem(targetIndex, targetOffset)
-            horizontalScrollState.scrollTo(newRenderingX.toInt())
+            horizontalScrollState.scrollTo(x.toInt())
         }
+    }
+
+    private fun calculateVisiblePages(): List<VisiblePageInfo> {
+        if (!isInitialized.value || pages.isEmpty()) return emptyList()
+
+        val currentY = renderingY.floatValue
+        val currentX = renderingX.floatValue
+        val viewportHeight = viewport.value.height
+        val viewportWidth = viewport.value.width
+        val currentScale = scale.value
+        val currentScaledWidth = viewportWidth * currentScale
+
+        val visiblePages = mutableListOf<VisiblePageInfo>()
+        var accumulatedHeight = 0f
+
+        for (i in pages.indices) {
+            val pageHeight = scaledPageHeight(i, currentScaledWidth)
+            val pageTop = accumulatedHeight
+            val pageBottom = pageTop + pageHeight
+
+            if (pageBottom > currentY && pageTop < currentY + viewportHeight) {
+                val topCutoff = (currentY - pageTop).coerceAtLeast(0f)
+                val bottomCutoff = (pageBottom - (currentY + viewportHeight)).coerceAtLeast(0f)
+                val leftCutoff = currentX.coerceIn(0f, currentScaledWidth)
+                val rightCutoff = (currentScaledWidth - (currentX + viewportWidth)).coerceAtLeast(0f)
+
+                visiblePages.add(VisiblePageInfo(
+                    i, topCutoff, bottomCutoff, leftCutoff.toInt(), rightCutoff.toInt(),
+                    currentScaledWidth, pageHeight
+                ))
+            }
+            accumulatedHeight += pageHeight
+            if (accumulatedHeight > currentY + viewportHeight) break
+        }
+        return visiblePages
+    }
+
+    private fun calculateAbsoluteYFromIndex(index: Int, offset: Int): Float {
+        var y = 0f
+        val currentScaledWidth = viewport.value.width * scale.value
+        for (i in 0 until index) {
+            if (i < pages.size) y += scaledPageHeight(i, currentScaledWidth)
+        }
+        return y + offset
     }
 
     private fun getPageAndOffsetForAbsoluteY(absY: Float, s: Float): Pair<Int, Int> {
@@ -300,6 +227,50 @@ data class PdfState(
         return 0 to 0
     }
 
+    fun renderViewport(transforms: List<PageTransform>): Pair<RenderResponse, ConsumerBuffer> {
+        val buffer = bufferPool.getBufferViewport(transforms)
+        return buffer.withAddress {
+            val response = renderer.render(
+                RenderRequest(
+                    transforms,
+                    it
+                )
+            )
+            response to buffer
+        }
+    }
+
+    fun renderFullPage(transform: PageTransform): Pair<RenderResponse, ConsumerBuffer> {
+        val buffer = bufferPool.getBufferPage(transform)
+        return buffer.withAddress {
+            val response = renderer.render(
+                RenderRequest(
+                    listOf(transform),
+                    it
+                )
+            )
+            response to buffer
+        }
+    }
+
+    @Composable
+    fun produceImageTransforms(): State<List<PageTransform>> {
+        return derivedStateOf {
+            visiblePages.value.map {
+                PageTransform(
+                    pageIndex = it.page,
+                    topCutoff = it.topCutoff.toInt(),
+                    bottomCutoff = it.bottomCutoff.toInt(),
+                    leftCutoff = it.leftCutoff,
+                    rightCutoff = it.rightCutoff,
+                    scaledWidth = it.scaledWidth.toInt(),
+                    scaledHeight = it.scaledHeight.toInt(),
+                    scale = scale.value
+                )
+            }
+        }
+    }
+
     val isInitialized: MutableState<Boolean> = mutableStateOf(false)
 
     fun initPages(renderer: PdfRenderer) {
@@ -311,7 +282,7 @@ data class PdfState(
         }
     }
     @Composable
-    fun OpenDocument() {
+    fun OpenDisposableDocument() {
         DisposableEffect(pdfSource) {
             renderer = PdfRenderer(pdfSource)
             bufferPool = ConsumerBufferPool()
@@ -323,8 +294,6 @@ data class PdfState(
             }
         }
     }
-
-
 
     fun setScale(value: Float) {
         scale.value = value

@@ -4,31 +4,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
-import com.dshatz.pdfmp.PdfRenderer
 import com.dshatz.pdfmp.compose.CurrentImage
-import org.jetbrains.skia.Bitmap
-import org.jetbrains.skiko.toImage
-import java.awt.image.BandedSampleModel
+import com.dshatz.pdfmp.model.calculateSize
 import java.awt.image.BufferedImage
-import java.awt.image.ComponentSampleModel
-import java.awt.image.DataBuffer
-import java.awt.image.DataBufferByte
 import java.awt.image.DataBufferInt
-import java.awt.image.PixelInterleavedSampleModel
-import java.awt.image.Raster
-import java.awt.image.SampleModel
 
 @Composable
 internal actual fun CurrentImage.toImageBitmap(): RecyclableBitmap {
-    val imageBitmap = remember(loadedTransform, buffer) {
+    val imageBitmap = remember(loadedTransforms, buffer) {
         val buffer = buffer.buffer
         buffer.rewind()
-        val (width, height) = loadedTransform.size()
+        val (width, height) = loadedTransforms.calculateSize()
         if (width == 0 || height == 0) {
             // Return an empty bitmap if dimensions are invalid
             RecyclableBitmap(ImageBitmap(1, 1), {})
         } else {
-            // 1. Create a Java AWT BufferedImage
             val bufferedImage = BufferedImage(
                 width,
                 height,

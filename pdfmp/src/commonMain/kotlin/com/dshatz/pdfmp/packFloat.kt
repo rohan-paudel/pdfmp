@@ -5,7 +5,7 @@ import kotlinx.io.readByteArray
 import kotlinx.io.readFloat
 import kotlinx.io.writeFloat
 
-fun List<Float>.pack(): ByteArray {
+fun List<Float>.packMap(): ByteArray {
     val buffer = Buffer()
     forEach(buffer::writeFloat)
     return buffer.readByteArray()

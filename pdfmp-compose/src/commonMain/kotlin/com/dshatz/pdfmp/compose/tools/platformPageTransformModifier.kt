@@ -10,35 +10,25 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastForEach
+import com.dshatz.pdfmp.compose.platformModifier.platformPageTransformModifier
 import com.dshatz.pdfmp.compose.state.PdfState
 import kotlin.math.PI
 import kotlin.math.abs
-
-/**
- * Platform-specific modifier for gestures.
- */
-expect fun Modifier.platformPageTransformModifier(
-    state: PdfState,
-): Modifier
 
 
 /**
  * Common modifier for transform gestures. Includes [platformPageTransformModifier].
  */
 fun Modifier.pageTransformModifier(state: PdfState): Modifier = composed {
-    Modifier.pointerInput(Unit) {
-        detectTransformGestures { centroid, _, zoom, _ ->
-            state.zoom(zoom, centroid)
-        }
-    }.then(Modifier.platformPageTransformModifier(state))
+    Modifier.platformPageTransformModifier(state)
 }
 
-suspend fun PointerInputScope.detectTransformGestures(
+suspend fun PointerInputScope.detectTransformGesturesHighPriority(
     panZoomLock: Boolean = false,
     consumePanGestures: Boolean = true,
     onGesture: (centroid: Offset, pan: Offset, zoom: Float, rotation: Float) -> Unit,
@@ -52,9 +42,23 @@ suspend fun PointerInputScope.detectTransformGestures(
         var lockedToPanZoom = false
 
         awaitFirstDown(requireUnconsumed = false)
+
         do {
-            val event = awaitPointerEvent()
+            val event = awaitPointerEvent(PointerEventPass.Initial)
             val canceled = event.changes.fastAny { it.isConsumed }
+
+            // If less than 2 fingers, we dont consume.
+            // We let these events pass through to the main pass so
+            // the scrollable modifier can handle them.
+            if (event.changes.size < 2) {
+                // Reset state so if they add a 2nd finger later,
+                // we treat it as a fresh zoom/pan attempt (re-check slop)
+                pastTouchSlop = false
+                zoom = 1f
+                rotation = 0f
+                pan = Offset.Zero
+                continue
+            }
 
             if (!canceled) {
                 val zoomChange = event.calculateZoom()
@@ -71,8 +75,7 @@ suspend fun PointerInputScope.detectTransformGestures(
                     val rotationMotion = abs(rotation * PI.toFloat() * centroidSize / 180f)
                     val panMotion = pan.getDistance()
 
-                    if (
-                        zoomMotion > touchSlop ||
+                    if (zoomMotion > touchSlop ||
                         rotationMotion > touchSlop ||
                         panMotion > touchSlop
                     ) {
@@ -93,10 +96,7 @@ suspend fun PointerInputScope.detectTransformGestures(
                     }
 
                     event.changes.fastForEach {
-                        val shouldConsumePosition =
-                            isZoomOrRotate ||
-                                    // Consume if it's a pan change AND we are configured to consume pans
-                                    (isPan && consumePanGestures)
+                        val shouldConsumePosition = isZoomOrRotate || (isPan && consumePanGestures)
 
                         if (shouldConsumePosition && it.positionChanged()) {
                             it.consume()

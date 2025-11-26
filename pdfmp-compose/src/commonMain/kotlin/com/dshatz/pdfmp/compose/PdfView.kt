@@ -1,10 +1,11 @@
 package com.dshatz.pdfmp.compose
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -15,10 +16,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -27,15 +27,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.zIndex
+import com.dshatz.pdfmp.compose.platformModifier.platformScrollableModifier
 import com.dshatz.pdfmp.compose.state.PdfState
-import com.dshatz.pdfmp.compose.tools.PartialBitmapRenderer
+import com.dshatz.pdfmp.compose.tools.TransformedBitmapRenderer
 import com.dshatz.pdfmp.compose.tools.pageTransformModifier
-import com.dshatz.pdfmp.compose.tools.toImageBitmap
 import kotlinx.coroutines.delay
 
 @Composable
@@ -46,31 +44,20 @@ fun PdfView(
     val listState = rememberLazyListState()
     val horizontalScroll = rememberScrollState()
 
-    DisposableEffect(Unit) {
+    LaunchedEffect(Unit) {
         state.bind(listState, horizontalScroll)
-        onDispose { /*todo*/ }
     }
 
-    LaunchedEffect(listState, horizontalScroll) {
-        snapshotFlow {
-            Triple(
-                listState.firstVisibleItemIndex,
-                listState.firstVisibleItemScrollOffset,
-                horizontalScroll.value
-            )
-        }.collect { (idx, off, hVal) ->
-            state.syncFromLayout(idx, off, hVal)
-        }
-    }
     Box(
-        modifier = modifier.onGloballyPositioned {
+        modifier = modifier.pageTransformModifier(state).onGloballyPositioned {
             // Report real viewport size.
             state.setViewport(it.size.toSize())
-        }.pageTransformModifier(state)
+        }
     ) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.matchParentSize().horizontalScroll(horizontalScroll)
+            userScrollEnabled = false,
+            modifier = Modifier.matchParentSize().platformScrollableModifier(state)
         ) {
             FullDocumentBoxes(state)
         }
@@ -89,13 +76,14 @@ fun PdfView(
 private fun LazyListScope.FullDocumentBoxes(state: PdfState) {
     items(state.pages.size) { pageIdx ->
         val size by state.rememberScaledPageSize(pageIdx)
-        Box(Modifier.requiredSize(size), contentAlignment = Alignment.Center) {
+        Column(Modifier.requiredSize(size), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Text(
                 pageIdx.toString(),
                 fontSize = 60.sp,
                 color = Color.Gray,
                 modifier = Modifier.alpha(0.5f).zIndex(100f)
             )
+            Text(size.toString())
         }
     }
 }
@@ -106,32 +94,28 @@ private fun PdfViewport(
     modifier: Modifier = Modifier,
 ) {
     val transforms by state.produceImageTransforms()
-    val images by produceState<List<CurrentImage>?>(null, transforms) {
-        delay(1000)
-        value = transforms.map { (page, transform) ->
-            val (response, buffer) = state.render(page, transform)
-            CurrentImage(
-                requestedTransform = transform,
-                loadedTransform = response.transform,
-                buffer = buffer
+    val image by produceState<CurrentImage?>(null, transforms) {
+        delay(100)
+        val (response, buffer) = state.renderViewport(transforms)
+        val oldImage = value
+        value = CurrentImage(
+            transforms,
+            response.transforms,
+            buffer
+        )
+        oldImage?.free()
+    }
+
+
+
+    if (transforms == image?.loadedTransforms) {
+        image?.let { img ->
+            Image(
+                contentScale = ContentScale.FillBounds,
+                bitmap = img.composeBitmap(),
+                contentDescription = null,
+                modifier = modifier
             )
-        }
-    }
-
-
-    LaunchedEffect(images) {
-//        println("Image count: ${images?.size}")
-//        println("Image transforms: ${images?.joinToString("\n") { it.loadedTransform.toString() }}")
-    }
-    if (transforms.values.toList() == images?.map { it.loadedTransform }) {
-        Column(modifier) {
-            images?.forEach {
-                Image(
-                    contentScale = ContentScale.FillBounds,
-                    bitmap = it.toImageBitmap().imageBitmap,
-                    contentDescription = null
-                )
-            }
         }
     }
 }
@@ -144,80 +128,62 @@ private fun BaseImage(
     val transforms by state.produceImageTransforms()
 
     val baseImageCache = remember { mutableStateMapOf<Int, CurrentImage>() }
+    val viewPortCache = remember { mutableStateOf<Size?>(null) }
 
-
-    LaunchedEffect(transforms) {
-        transforms.forEach { (page, transform) ->
+    LaunchedEffect(transforms, state.viewport.value) {
+        transforms.forEach { transform ->
             // Check if not already cached.
-            if (!baseImageCache.containsKey(page)) {
+            if (!baseImageCache.containsKey(transform.pageIndex) || viewPortCache.value != state.viewport.value) {
                 // Use the uncut version at scale 1x
-                val fullPageTransform = transform.uncut().copy(scale = 1f)
+                val width1x = (transform.scaledWidth / transform.scale).toInt()
+                val height1x = (transform.scaledHeight / transform.scale).toInt()
 
-                val (response, buffer) = state.render(page, fullPageTransform)
+                val fullPageTransform = transform.uncut().copy(
+                    scale = 1f,
+                    scaledWidth = width1x,
+                    scaledHeight = height1x
+                )
+
+                val (response, buffer) = state.renderFullPage(fullPageTransform)
                 val image = CurrentImage(
-                    requestedTransform = fullPageTransform,
-                    loadedTransform = response.transform,
+                    requestedTransforms = listOf(fullPageTransform),
+                    loadedTransforms = response.transforms,
                     buffer = buffer
                 )
-                baseImageCache[page] = image
+                baseImageCache[transform.pageIndex] = image
+                viewPortCache.value = state.viewport.value
             }
         }
-        // Optional: Cleanup (Remove pages that are no longer visible to save RAM)
-        // baseImageCache.keys.retainAll(transforms.keys)
+        // remove pages that are no longer visible from cache
+        val toRemove = baseImageCache.filter { it.key !in transforms.map { it.pageIndex } }
+        baseImageCache.keys.removeAll(toRemove.keys)
+        toRemove.forEach { it.value.free() }
     }
+    Column(modifier = modifier) {
+        transforms.forEach { transform ->
+            val cachedImage = baseImageCache[transform.pageIndex]
 
-    /*val baseImages by produceState<List<CurrentImage>?>(null, transforms.keys) {
-        value = transforms.map { (page, transform) ->
-            val fullPageTransform = transform.uncut().copy(scale = 1f)
-            val (response, buffer) = state.render(page, fullPageTransform)
-            CurrentImage(
-                requestedTransform = fullPageTransform,
-                loadedTransform = response.transform,
-                buffer = buffer
-            )
-        }
-    }*/
+            // 1. Calculate the size this slice takes up on the screen
+            val (sliceWidth, sliceHeight) = transform.sliceSize()
+            val dstSize = Size(sliceWidth.toFloat(), sliceHeight.toFloat())
 
+            // 2. Convert to DP for the Compose container size
+            val density = LocalDensity.current
+            val boxSize = with(density) { dstSize.toDpSize() }
 
+            Box(
+                modifier = Modifier.size(boxSize)
+            ) {
+                if (cachedImage != null) {
+                    val bitmap = cachedImage.composeBitmap()
 
-
-
-    Column(modifier) {
-        transforms.forEach { (pageIdx, transform) ->
-            val cachedImage = baseImageCache[pageIdx]
-            val image = cachedImage?.toImageBitmap()
-            DisposableEffect(image) {
-                onDispose {
-                    image?.onRecycle()
+                    TransformedBitmapRenderer(
+                        bitmap = bitmap,
+                        transform = transform,
+                        modifier = Modifier.requiredSize(with(density) { dstSize.toDpSize() })
+                    )
                 }
             }
-
-            val width = transform.scaledWidth - transform.leftCutoff - transform.rightCutoff
-            val height = transform.scaledHeight - transform.topCutoff - transform.bottomCutoff
-            val dstSize = Size(width.toFloat(), height.toFloat())
-
-            /*val size = Size(
-                (transform.scaledWidth - transform.leftCutoff - transform.rightCutoff).toFloat(),
-                (transform.scaledHeight - transform.topCutoff - transform.bottomCutoff).toFloat()
-            )*/
-            val currentScale = transform.scale
-            val srcX = (transform.leftCutoff / currentScale).toInt()
-            val srcY = (transform.topCutoff / currentScale).toInt()
-            if (image != null) {
-                PartialBitmapRenderer(
-                    image.imageBitmap,
-                    srcOffset = IntOffset(srcX, srcY),
-                    scale = transform.scale,
-                    dstSize = dstSize,
-                    modifier = Modifier.requiredSize(with (LocalDensity.current) { dstSize.toDpSize() })
-                )
-            }
-            /*Image(
-                contentScale = ContentScale.None,
-                alignment = Alignment.TopCenter,
-                bitmap = it.toImageBitmap().imageBitmap,
-                contentDescription = null
-            )*/
         }
     }
 }

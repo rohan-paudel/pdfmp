@@ -1,4 +1,4 @@
-package com.dshatz.pdfmp.compose.tools
+package com.dshatz.pdfmp.compose.platformModifier
 
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -9,17 +9,15 @@ import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.onPointerEvent
 import com.dshatz.pdfmp.compose.state.PdfState
 
-actual fun Modifier.platformPageTransformModifier(
-    state: PdfState,
-): Modifier {
-    return desktopZoom(state)
+actual fun Modifier.platformPageTransformModifier(state: PdfState): Modifier = composed {
+    desktopZoom(state)
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
 private fun Modifier.desktopZoom(
     state: PdfState
 ): Modifier = composed {
-    onPointerEvent(PointerEventType.Scroll, PointerEventPass.Initial) { event ->
+    onPointerEvent(PointerEventType.Companion.Scroll, PointerEventPass.Initial) { event ->
         val eventChange = event.changes.first()
 
         if (event.keyboardModifiers.isCtrlPressed) {

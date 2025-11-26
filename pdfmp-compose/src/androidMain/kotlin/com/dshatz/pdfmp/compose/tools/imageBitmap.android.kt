@@ -6,11 +6,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import com.dshatz.pdfmp.compose.CurrentImage
+import com.dshatz.pdfmp.model.calculateSize
 
 @Composable
 internal actual fun CurrentImage.toImageBitmap(): RecyclableBitmap {
-    val imageBitmap = remember(this.loadedTransform) {
-        val (width, height) = loadedTransform.size()
+    val imageBitmap = remember(this.loadedTransforms, buffer) {
+        val (width, height) = loadedTransforms.calculateSize()
 
         val buffer = buffer.buffer
         buffer.rewind()

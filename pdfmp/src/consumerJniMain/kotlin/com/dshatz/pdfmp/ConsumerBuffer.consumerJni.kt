@@ -1,7 +1,6 @@
 package com.dshatz.pdfmp
 
-import sun.nio.ch.DirectBuffer
-import java.lang.ref.Cleaner
+import com.dshatz.pdfmp.model.SizeB
 import java.nio.ByteBuffer
 import java.nio.ByteOrder.LITTLE_ENDIAN
 
@@ -11,18 +10,17 @@ actual class ConsumerBuffer(val buffer: ByteBuffer) {
         return action(PDFBridge.getBufferAddress(buffer))
     }
 
-    actual fun capacity(): Int {
-        return buffer.capacity()
+    actual fun capacity(): SizeB {
+        return SizeB(buffer.capacity())
     }
 
-    actual fun free() {
-        /*val cleaner: jdk.internal.ref.Cleaner? = (buffer as DirectBuffer).cleaner()
-        if (cleaner != null) cleaner.clean()*/
-    }
+    actual fun free() {}
 }
 
 actual object ConsumerBufferUtil {
-    actual fun allocate(size: Int): ConsumerBuffer {
-        return ConsumerBuffer(ByteBuffer.allocateDirect(size).order(LITTLE_ENDIAN))
+    actual fun allocate(size: SizeB): ConsumerBuffer {
+        return ConsumerBuffer(
+            ByteBuffer.allocateDirect(size.bytes).order(LITTLE_ENDIAN)
+        )
     }
 }

@@ -124,6 +124,9 @@ kotlin {
         getByName("consumerMain") {
             dependsOn(getByName("commonMain"))
         }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
     }
     compilerOptions {
         freeCompilerArgs.add("-Xexpect-actual-classes")

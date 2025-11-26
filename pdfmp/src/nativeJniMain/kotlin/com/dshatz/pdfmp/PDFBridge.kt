@@ -4,6 +4,7 @@ package com.dshatz.pdfmp
 
 import com.dshatz.pdfmp.PDFBridgeConst.CLASS_NAME
 import com.dshatz.pdfmp.PDFBridgeConst.PACKAGE_NAME
+import com.dshatz.pdfmp.model.RenderRequest
 import com.dshatz.pdfmp.source.PdfSource
 import dev.datlag.nkommons.JNIConnect
 import kotlinx.cinterop.COpaque
@@ -59,7 +60,7 @@ fun getAspectRatio(rendererPtr: PdfRendererPtr, pageIndex: Int): Float {
     functionName = "getPageRatios"
 )
 fun getPageRatios(rendererPtr: PdfRendererPtr): ByteArray {
-    return rendererPtr.getRenderer().getPageRatios().pack()
+    return rendererPtr.getRenderer().getPageRatios().packMap()
 }
 
 @JNIConnect(
