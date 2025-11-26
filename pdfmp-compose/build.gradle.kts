@@ -58,7 +58,7 @@ android {
 
 mavenPublishing {
     signAllPublications()
-    publishToMavenCentral(true)
+    publishToMavenCentral(true, validateDeployment = false)
     coordinates("com.dshatz.pdfmp", "pdfmp-compose", project.version.toString())
 
     pom {

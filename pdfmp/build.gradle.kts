@@ -247,7 +247,7 @@ dependencies {
 
 mavenPublishing {
     signAllPublications()
-    publishToMavenCentral(true)
+    publishToMavenCentral(true, validateDeployment = false)
     coordinates("com.dshatz.pdfmp", "pdfmp", project.version.toString())
 
     pom {
