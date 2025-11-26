@@ -1,23 +1,15 @@
 package com.dshatz.pdfmp.compose.state
 
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.State
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import com.dshatz.pdfmp.ImageTransform
-import com.dshatz.pdfmp.compose.viewport
-import kotlin.math.min
-
 data class PdfPageState(
-    val docState: PdfDocumentState,
-    val verticalOffset: MutableState<Float>,
-    val imageSize: MutableState<Size> = mutableStateOf(Size(1f, 1f))
+    val pageIdx: Int,
+    val aspectRatio: Float,
 ) {
 
+    /*suspend fun getRatio(): Float {
+        return docState.renderer.getAspectRatio(pageIdx)
+    }
     val offsetState: State<Offset> = derivedStateOf {
-        Offset(docState.globalHorizontalOffset.value, verticalOffset.value)
+        Offset(docState.globalHorizontalOffset.value, 0f)
     }
     val requestedTransform: State<ImageTransform> = derivedStateOf {
         ImageTransform(
@@ -37,7 +29,7 @@ data class PdfPageState(
             ).coerceOffset()
         }
         docState.globalHorizontalOffset.value = coerced.x
-        verticalOffset.value = coerced.y
+//        verticalOffset.value = coerced.y
         return offset - coerced
     }
     private fun Offset.coerceOffset(): Offset {
@@ -58,5 +50,5 @@ data class PdfPageState(
 
     fun setImageSize(size: Size) {
         this.imageSize.value = size
-    }
+    }*/
 }

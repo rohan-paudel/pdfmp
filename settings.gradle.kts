@@ -14,5 +14,6 @@ dependencyResolutionManagement {
 include(":pdfmp")
 include(":pdfmp-compose")
 include(":sample")
+include(":sample-shared")
 include(":pdfium-binaries")
 rootProject.name = "pdf-multiplatform"

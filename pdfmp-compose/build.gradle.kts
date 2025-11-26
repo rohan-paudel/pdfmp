@@ -1,3 +1,8 @@
+@file:OptIn(ExperimentalComposeLibrary::class)
+
+import org.jetbrains.compose.ExperimentalComposeLibrary
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+
 plugins {
     alias(libs.plugins.mp)
     alias(libs.plugins.compose)
@@ -6,13 +11,22 @@ plugins {
     alias(libs.plugins.publish)
 }
 
+version = project.findProperty("version") as? String ?: "0.1.0-SNAPSHOT1"
 
 kotlin {
     jvmToolchain(21)
     androidTarget()
     jvm()
-//    iosArm64()
-//    iosSimulatorArm64()
+
+    val iosTargets = listOf(iosX64(), iosArm64(), iosSimulatorArm64())
+
+    val xcf = XCFramework()
+    iosTargets.forEach {
+        it.binaries.framework {
+            baseName = "pdfmpcompose"
+            xcf.add(this)
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {
@@ -20,6 +34,15 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.material3)
             implementation(compose.foundation)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.coroutines.test)
+            implementation(compose.uiTest)
+        }
+        jvmTest.dependencies {
+            implementation(libs.coroutines.test)
+            implementation("io.mockk:mockk:1.14.6")
         }
     }
 }
@@ -36,7 +59,7 @@ android {
 mavenPublishing {
     signAllPublications()
     publishToMavenCentral(true)
-    coordinates("com.dshatz.pdfmp", "pdfmp-compose", "1.0.0")
+    coordinates("com.dshatz.pdfmp", "pdfmp-compose", project.version.toString())
 
     pom {
         name.set("PDF Multiplatform")

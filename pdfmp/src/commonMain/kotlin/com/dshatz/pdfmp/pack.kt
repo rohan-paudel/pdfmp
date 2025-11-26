@@ -2,63 +2,35 @@ package com.dshatz.pdfmp
 
 import kotlinx.io.*
 
-data class ImageTransform(
-    val scale: Float,
-    val offsetX: Float,
-    val offsetY: Float,
-    val viewportWidth: Int,
-    val viewportHeight: Int
-) {
-    fun pack(): ByteArray {
-        return Buffer().also {
-            it.writeFloat(scale)
-            it.writeFloat(offsetX)
-            it.writeFloat(offsetY)
-            it.writeInt(viewportWidth)
-            it.writeInt(viewportHeight)
-        }.readByteArray()
+internal fun <K, V> LinkedHashMap<K, V>.packMap(to: Buffer, packKey: Buffer.(K) -> Unit, packValue: Buffer.(V) -> Unit) {
+    to.writeInt(size)
+    forEach {
+        packKey(to, it.key)
+        packValue(to, it.value)
     }
+}
 
-    companion object {
-        internal const val packedSizeBytes = Float.SIZE_BYTES * 3 + Int.SIZE_BYTES * 2
-        fun unpack(data: ByteArray): ImageTransform {
-            val buffer = Buffer()
-            buffer.write(data, 0, packedSizeBytes)
-            return ImageTransform(
-                buffer.readFloat(),
-                buffer.readFloat(),
-                buffer.readFloat(),
-                buffer.readInt(),
-                buffer.readInt()
-            )
+internal fun <K, V> unpackMap(buffer: Buffer, unpackKey: Buffer.() -> K, unpackValue: Buffer.() -> V): LinkedHashMap<K, V> {
+    val size = buffer.readInt()
+    return LinkedHashMap<K, V>(size).also { map ->
+        repeat(size) {
+            map[unpackKey(buffer)] = unpackValue(buffer)
         }
     }
 }
 
-data class RenderRequest(
-    val page: Int,
-    val transform: ImageTransform,
-    val bufferAddress: Long
-) {
-    fun pack(): ByteArray {
-        val buffer = Buffer()
-        buffer.writeLong(bufferAddress)
-        buffer.writeInt(page)
-        buffer.write(transform.pack())
-
-        return buffer.readByteArray()
-    }
-
-    companion object {
-        fun unpack(data: ByteArray): RenderRequest {
-            val buffer = Buffer()
-            buffer.write(data)
-            val bufferAddress = buffer.readLong()
-            val page = buffer.readInt()
-            return RenderRequest(
-                page, ImageTransform.unpack(buffer.readByteArray()), bufferAddress
-            )
-        }
+internal fun <T> List<T>.packList(to: Buffer, packItem: T.(Buffer) -> Unit) {
+    to.writeInt(size)
+    forEach {
+        it.packItem(to)
     }
 }
 
+internal fun <T> unpackList(buffer: Buffer, unpackItem: Buffer.() -> T): List<T> {
+    val size = buffer.readInt()
+    return buildList {
+        repeat(size) {
+            add(buffer.unpackItem())
+        }
+    }
+}

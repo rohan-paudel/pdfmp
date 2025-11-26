@@ -4,16 +4,15 @@ import android.os.Bundle
 import android.os.Environment
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import com.dshatz.pdfmp.compose.PdfView
 import com.dshatz.pdfmp.compose.source.pdfResource
+import com.dshatz.pdfmp.compose.state.rememberPdfState
 import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.dialogs.init
 import io.github.vinceglb.filekit.utils.toKotlinxPath
-import kotlinx.coroutines.delay
 import kotlinx.io.files.Path
 
 class MainActivity: ComponentActivity() {
@@ -31,7 +30,8 @@ class MainActivity: ComponentActivity() {
                 }*/
                 FileKit.init(this)
                 val res = pdfResource(Path(Environment.getExternalStorageDirectory().toKotlinxPath(), "Download", "sample.pdf"))
-                DemoTabs(res)
+                val pdf = rememberPdfState(res)
+                PdfView(pdf, modifier = Modifier.fillMaxSize())
             }
         }
     }

@@ -15,7 +15,7 @@ plugins {
 }
 
 group = "com.dshatz"
-version = "1.0.0"
+version = project.findProperty("version") as? String ?: "0.1.0-SNAPSHOT1"
 
 // Map KMP target names to standard pdfium lib folder.
 private val desktopTargetMap = mapOf(
@@ -107,6 +107,7 @@ kotlin {
     // iOS Targets
     iosArm64 { setUpPdfiumCinterop(); setupSharedLib() }
     iosSimulatorArm64 { setUpPdfiumCinterop(); setupSharedLib() }
+    iosX64 { setUpPdfiumCinterop(); setupSharedLib() }
 
     sourceSets {
         commonMain.dependencies {
@@ -122,6 +123,9 @@ kotlin {
 
         getByName("consumerMain") {
             dependsOn(getByName("commonMain"))
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
         }
     }
     compilerOptions {
@@ -226,12 +230,15 @@ dependencies {
     add("kspAndroidNativeX86", libs.jni.ksp)
     add("kspMacosX64", libs.jni.ksp)
     add("kspMacosArm64", libs.jni.ksp)
+    add("kspIosX64", libs.kni.ksp)
+    add("kspArm64", libs.kni.ksp)
+    add("kspIosSimulatorArm64", libs.kni.ksp)
 }
 
 mavenPublishing {
     signAllPublications()
     publishToMavenCentral(true)
-    coordinates("com.dshatz.pdfmp", "pdfmp", "1.0.0")
+    coordinates("com.dshatz.pdfmp", "pdfmp", project.version.toString())
 
     pom {
         name.set("PDF Multiplatform")

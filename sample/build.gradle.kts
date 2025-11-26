@@ -17,17 +17,15 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":pdfmp-compose"))
-//            implementation("com.dshatz.pdfmp:core:1.0.0")
-            implementation(compose.desktop.common)
+//            implementation("com.dshatz.pdfmp:pdfmp-compose-jvm:unspecified")
             implementation(compose.runtime)
             implementation(compose.material3)
             implementation(compose.components.resources)
-
-            implementation(libs.filepicker)
-            implementation(libs.filepicker.compose)
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
+            implementation(compose.desktop.common)
+
         }
         androidMain.dependencies {
             implementation("androidx.activity:activity-compose:1.11.0")

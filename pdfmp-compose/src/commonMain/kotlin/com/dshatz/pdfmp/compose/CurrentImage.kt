@@ -1,28 +1,35 @@
 package com.dshatz.pdfmp.compose
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.ImageBitmap
 import com.dshatz.pdfmp.ConsumerBuffer
-import com.dshatz.pdfmp.ImageTransform
-import com.dshatz.pdfmp.PageSize
-import com.dshatz.pdfmp.RenderResponse
+import com.dshatz.pdfmp.compose.tools.RecyclableBitmap
+import com.dshatz.pdfmp.compose.tools.toImageBitmap
+import com.dshatz.pdfmp.model.PageTransform
 
 
 interface ICurrentImage {
-    val requestedTransform: ImageTransform
-    val loadedTransform: ImageTransform
-    val pageSize: PageSize
+    val requestedTransforms: List<PageTransform>
+    val loadedTransforms: List<PageTransform>
     val buffer: ConsumerBuffer
 }
 
 
-expect class CurrentImage(
-    requestedTransform: ImageTransform,
-    loadedTransform: ImageTransform,
-    pageSize: PageSize,
-    buffer: ConsumerBuffer
+data class CurrentImage(
+    override val requestedTransforms: List<PageTransform>,
+    override val loadedTransforms: List<PageTransform>,
+    override val buffer: ConsumerBuffer,
+    private val bitmap: MutableState<RecyclableBitmap?> = mutableStateOf(null)
 ): ICurrentImage {
-    override val requestedTransform: ImageTransform
-    override val loadedTransform: ImageTransform
-    override val pageSize: PageSize
-    override val buffer: ConsumerBuffer
+    fun free() {
+        bitmap.value?.free()
+        buffer.free()
+    }
 
+    @Composable
+    fun composeBitmap(): ImageBitmap {
+        return toImageBitmap().also { bitmap.value = it }.imageBitmap
+    }
 }

@@ -2,6 +2,9 @@ package com.dshatz.pdfmp
 
 import cnames.structs.fpdf_document_t__
 import com.dshatz.internal.pdfium.*
+import com.dshatz.pdfmp.model.PageTransform
+import com.dshatz.pdfmp.model.RenderRequest
+import com.dshatz.pdfmp.model.RenderResponse
 import com.dshatz.pdfmp.source.PdfSource
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
@@ -49,9 +52,8 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
             throw IllegalStateException("Failed to load PDF from $source. Error code: $error")
         }
 
-        return renderPage(
-            renderRequest.page,
-            renderRequest.transform,
+        return renderPages(
+            renderRequest.transforms,
             renderRequest.bufferAddress
         )
     }
@@ -78,75 +80,114 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
     }
 
     @OptIn(ExperimentalForeignApi::class, UnsafeNumber::class)
-    private fun renderPage(
-        pageIndex: Int,
-        transform: ImageTransform,
+    private fun renderPages(
+        transforms: List<PageTransform>, // Map <PageIndex, Transform>
         bufferAddress: Long
     ): RenderResponse {
+        // Here we will render all the transforms on top of each other into one big bitmap.
         return runCatching {
             val document = doc ?: throw IllegalStateException("Document is not open")
 
-            val scale = transform.scale
-            val viewportWidth = transform.viewportWidth
-            val viewportHeight = transform.viewportHeight
-            val offsetX = transform.offsetX
-            val offsetY = transform.offsetY
+            // Total dimensions
+            var totalHeight = 0
+            var maxWidth = 0
 
-            val page = document.openPage(pageIndex)
+            transforms.forEach {
+                val h = it.scaledHeight - it.topCutoff - it.bottomCutoff
+                val w = it.scaledWidth - it.leftCutoff - it.rightCutoff
+                if (h <= 0 || w <= 0) error("Invalid slice dimensions")
+                totalHeight += h
+                maxWidth = maxOf(maxWidth, w)
+            }
+
+            if (totalHeight == 0 || maxWidth == 0) error("Total dimensions are zero")
+
+            // The giant result bitmap
+            val combinedBitmap = FPDFBitmap_CreateEx(maxWidth, totalHeight, FPDFBitmap_BGRx, null, 0)
+                ?: throw IllegalStateException("Failed to create combined bitmap")
 
             try {
-                val unscaledPageWidth = FPDF_GetPageWidthF(page)
-                val unscaledPageHeight = FPDF_GetPageHeightF(page)
-                val rawPageWidth = (unscaledPageWidth * scale).toInt()
-                val rawPageHeight = (unscaledPageHeight * scale).toInt()
+                FPDFBitmap_FillRect(combinedBitmap, 0, 0, maxWidth, totalHeight, 0xFFFFFFFFu)
 
-                if (viewportWidth <= 0 || viewportHeight <= 0) {
-                    throw IllegalStateException("Invalid page dimensions: $viewportWidth x $viewportHeight")
-                }
+                // Get the raw pointer and stride of the giant bitmap
+                val combinedBufferPtr = FPDFBitmap_GetBuffer(combinedBitmap)
+                    ?: throw IllegalStateException("Failed to get combined buffer")
+                val combinedStride = FPDFBitmap_GetStride(combinedBitmap)
 
-                val fitScale = viewportWidth.toFloat() / rawPageWidth
-                val finalScale = scale * fitScale
+                var currentY = 0
 
-                val totalScaledWidth = (rawPageWidth * finalScale).toInt()
-                val totalScaledHeight = (rawPageHeight * finalScale).toInt()
+                // Render each page slice
+                transforms.forEach { transform ->
+                    val page = document.openPage(transform.pageIndex)
+                    try {
+                        val sliceHeight = transform.scaledHeight - transform.topCutoff - transform.bottomCutoff
+                        val sliceWidth = transform.scaledWidth - transform.leftCutoff - transform.rightCutoff
 
-                val bitmap = FPDFBitmap_CreateEx(viewportWidth, viewportHeight, FPDFBitmap_BGRx, null, 0)
-                    ?: throw IllegalStateException("Failed to create bitmap")
+                        // Calculate the pointer offset for this specific slice
+                        // Offset = Rows * BytesPerRow
+                        val offsetBytes = currentY * combinedStride
 
-                try {
-                    FPDFBitmap_FillRect(bitmap, 0, 0, viewportWidth, viewportHeight, 0xFFFFFFFFu)
-                    FPDF_RenderPageBitmap(
-                        bitmap,
-                        page,
-                        offsetX.toInt(),
-                        offsetY.toInt(),
-                        totalScaledWidth,
-                        totalScaledHeight,
-                        0,
-                        0
-                    )
+                        // Pointer arithmetic to find location of this slice's first pixel within the big bitmap.
+                        val sliceBufferPtr = combinedBufferPtr.reinterpret<ByteVar>()
+                            .plus(offsetBytes)!!.reinterpret<CPointed>()
 
-                    val bufferPtr: CPointer<out CPointed> = FPDFBitmap_GetBuffer(bitmap)?.reinterpret()
-                        ?: throw IllegalStateException("Failed to get bitmap buffer")
+                        // Create a "View" into the combined buffer
+                        // Important to pass `combinedStride` so pdfium knows when to paint the next line.
+                        // This has to be the big stride, not the slice stride in case slices have different width.
+                        val subBitmap = FPDFBitmap_CreateEx(
+                            sliceWidth,
+                            sliceHeight,
+                            FPDFBitmap_BGRx,
+                            sliceBufferPtr,
+                            combinedStride
+                        ) ?: throw IllegalStateException("Failed to create sub-bitmap")
 
-                    val byteCount = viewportWidth * viewportHeight * 4
-                    memScoped {
-                        val targetPtr: CPointer<out CPointed> = bufferAddress.toCPointer<CPointed>()
-                            ?: throw IllegalArgumentException("Invalid target memory address $bufferAddress")
-                        memcpy(targetPtr, bufferPtr, byteCount.convert())
+                        try {
+                            val startX = -transform.leftCutoff
+                            val startY = -transform.topCutoff
+
+                            FPDF_RenderPageBitmap(
+                                subBitmap,
+                                page,
+                                startX,
+                                startY,
+                                transform.scaledWidth,
+                                transform.scaledHeight,
+                                0,
+                                0
+                            )
+                        } finally {
+                            // Destroy the slice bitmap.
+                            FPDFBitmap_Destroy(subBitmap)
+                        }
+
+                        // next slice
+                        currentY += sliceHeight
+
+                    } finally {
+                        FPDF_ClosePage(page)
                     }
-//                    val pixelData: ByteArray = bufferPtr.readBytes(byteCount)
-
-                    return RenderResponse(transform, PageSize(unscaledPageWidth, unscaledPageHeight))
-
-                } finally {
-                    FPDFBitmap_Destroy(bitmap)
                 }
+
+                // 4. Copy the final result to the user's buffer
+                val totalByteCount = totalHeight * combinedStride
+                memScoped {
+                    val targetPtr: CPointer<out CPointed> = bufferAddress.toCPointer<CPointed>()
+                        ?: throw IllegalArgumentException("Invalid target memory address")
+
+                    // reinterpret needed to match memcpy signature
+                    memcpy(targetPtr, combinedBufferPtr, totalByteCount.convert())
+                }
+
+                return RenderResponse(transforms)
+
             } finally {
-                FPDF_ClosePage(page)
+                // Now we destroy the giant bitmap, which frees the memory we allocated at step 2
+                FPDFBitmap_Destroy(combinedBitmap)
             }
+
         }.getOrElse {
-            println("Could not render page ${it.message}")
+            println("Could not render stacked pages: ${it.message}")
             throw(it)
         }
     }

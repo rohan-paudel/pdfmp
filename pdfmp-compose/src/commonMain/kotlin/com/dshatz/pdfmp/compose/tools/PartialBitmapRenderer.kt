@@ -4,12 +4,15 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.toIntSize
+import com.dshatz.pdfmp.model.PageTransform
 import kotlin.math.min
 
+/*
 @Composable
 fun PartialBitmapRenderer(
     bitmap: ImageBitmap,
@@ -41,5 +44,38 @@ fun PartialBitmapRenderer(
             dstOffset = IntOffset.Zero,
             dstSize = dstSize.toIntSize()
         )
+    }
+}
+*/
+
+
+@Composable
+fun TransformedBitmapRenderer(
+    bitmap: ImageBitmap,
+    transform: PageTransform,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier) {
+        val srcX = (transform.leftCutoff / transform.scale).toInt()
+        val srcY = (transform.topCutoff / transform.scale).toInt()
+
+        val (scaledSliceW, scaledSliceH) = transform.sliceSize()
+        val srcWidth = (scaledSliceW / transform.scale).toInt()
+        val srcHeight = (scaledSliceH / transform.scale).toInt()
+
+        // Safety check to prevent crashing if rounding errors go 1px out of bounds
+        val safeSrcWidth = srcWidth.coerceAtMost(bitmap.width - srcX)
+        val safeSrcHeight = srcHeight.coerceAtMost(bitmap.height - srcY)
+
+        if (safeSrcWidth > 0 && safeSrcHeight > 0) {
+            drawImage(
+                image = bitmap,
+                srcOffset = IntOffset(srcX, srcY),
+                srcSize = IntSize(safeSrcWidth, safeSrcHeight),
+                // 2. Draw it into the full size of this composable (which is set to dstSize in the parent)
+                dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+                filterQuality = FilterQuality.Medium // smooths edges if scaling is involved
+            )
+        }
     }
 }

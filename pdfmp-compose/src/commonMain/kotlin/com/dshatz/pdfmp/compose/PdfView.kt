@@ -1,0 +1,189 @@
+package com.dshatz.pdfmp.compose
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.toSize
+import androidx.compose.ui.zIndex
+import com.dshatz.pdfmp.compose.platformModifier.platformScrollableModifier
+import com.dshatz.pdfmp.compose.state.PdfState
+import com.dshatz.pdfmp.compose.tools.TransformedBitmapRenderer
+import com.dshatz.pdfmp.compose.tools.pageTransformModifier
+import kotlinx.coroutines.delay
+
+@Composable
+fun PdfView(
+    state: PdfState,
+    modifier: Modifier = Modifier,
+) {
+    val listState = rememberLazyListState()
+    val horizontalScroll = rememberScrollState()
+
+    LaunchedEffect(Unit) {
+        state.bind(listState, horizontalScroll)
+    }
+
+    Box(
+        modifier = modifier.pageTransformModifier(state).onGloballyPositioned {
+            // Report real viewport size.
+            state.setViewport(it.size.toSize())
+        }
+    ) {
+        LazyColumn(
+            state = listState,
+            userScrollEnabled = false,
+            modifier = Modifier.matchParentSize().platformScrollableModifier(state)
+        ) {
+            FullDocumentBoxes(state)
+        }
+        BaseImage(
+            state,
+            modifier = Modifier.matchParentSize()
+        )
+        PdfViewport(
+            state,
+            modifier = Modifier.matchParentSize()
+        )
+    }
+}
+
+
+private fun LazyListScope.FullDocumentBoxes(state: PdfState) {
+    items(state.pages.size) { pageIdx ->
+        val size by state.rememberScaledPageSize(pageIdx)
+        Column(Modifier.requiredSize(size), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Text(
+                pageIdx.toString(),
+                fontSize = 60.sp,
+                color = Color.Gray,
+                modifier = Modifier.alpha(0.5f).zIndex(100f)
+            )
+            Text(size.toString())
+        }
+    }
+}
+
+@Composable
+private fun PdfViewport(
+    state: PdfState,
+    modifier: Modifier = Modifier,
+) {
+    val transforms by state.produceImageTransforms()
+    val image by produceState<CurrentImage?>(null, transforms) {
+        delay(100)
+        val (response, buffer) = state.renderViewport(transforms)
+        val oldImage = value
+        value = CurrentImage(
+            transforms,
+            response.transforms,
+            buffer
+        )
+        oldImage?.free()
+    }
+
+
+
+    if (transforms == image?.loadedTransforms) {
+        image?.let { img ->
+            Image(
+                contentScale = ContentScale.FillBounds,
+                bitmap = img.composeBitmap(),
+                contentDescription = null,
+                modifier = modifier
+            )
+        }
+    }
+}
+
+@Composable
+private fun BaseImage(
+    state: PdfState,
+    modifier: Modifier = Modifier,
+) {
+    val transforms by state.produceImageTransforms()
+
+    val baseImageCache = remember { mutableStateMapOf<Int, CurrentImage>() }
+    val viewPortCache = remember { mutableStateOf<Size?>(null) }
+
+    LaunchedEffect(transforms, state.viewport.value) {
+        transforms.forEach { transform ->
+            // Check if not already cached.
+            if (!baseImageCache.containsKey(transform.pageIndex) || viewPortCache.value != state.viewport.value) {
+                // Use the uncut version at scale 1x
+                val width1x = (transform.scaledWidth / transform.scale).toInt()
+                val height1x = (transform.scaledHeight / transform.scale).toInt()
+
+                val fullPageTransform = transform.uncut().copy(
+                    scale = 1f,
+                    scaledWidth = width1x,
+                    scaledHeight = height1x
+                )
+
+                val (response, buffer) = state.renderFullPage(fullPageTransform)
+                val image = CurrentImage(
+                    requestedTransforms = listOf(fullPageTransform),
+                    loadedTransforms = response.transforms,
+                    buffer = buffer
+                )
+                baseImageCache[transform.pageIndex] = image
+                viewPortCache.value = state.viewport.value
+            }
+        }
+        // remove pages that are no longer visible from cache
+        val toRemove = baseImageCache.filter { it.key !in transforms.map { it.pageIndex } }
+        baseImageCache.keys.removeAll(toRemove.keys)
+        toRemove.forEach { it.value.free() }
+    }
+    Column(modifier = modifier) {
+        transforms.forEach { transform ->
+            val cachedImage = baseImageCache[transform.pageIndex]
+
+            // 1. Calculate the size this slice takes up on the screen
+            val (sliceWidth, sliceHeight) = transform.sliceSize()
+            val dstSize = Size(sliceWidth.toFloat(), sliceHeight.toFloat())
+
+            // 2. Convert to DP for the Compose container size
+            val density = LocalDensity.current
+            val boxSize = with(density) { dstSize.toDpSize() }
+
+            Box(
+                modifier = Modifier.size(boxSize)
+            ) {
+                if (cachedImage != null) {
+                    val bitmap = cachedImage.composeBitmap()
+
+                    TransformedBitmapRenderer(
+                        bitmap = bitmap,
+                        transform = transform,
+                        modifier = Modifier.requiredSize(with(density) { dstSize.toDpSize() })
+                    )
+                }
+            }
+        }
+    }
+}

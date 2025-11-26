@@ -1,8 +1,8 @@
 package com.dshatz.pdfmp
 
+import com.dshatz.pdfmp.model.RenderRequest
+import com.dshatz.pdfmp.model.RenderResponse
 import com.dshatz.pdfmp.source.PdfSource
-import java.nio.ByteBuffer
-import java.nio.ByteOrder.LITTLE_ENDIAN
 
 actual class PdfRenderer actual constructor(private val source: PdfSource) {
 
@@ -10,12 +10,11 @@ actual class PdfRenderer actual constructor(private val source: PdfSource) {
     
     actual fun render(renderRequest: RenderRequest): RenderResponse {
         val packed = renderRequest.pack()
-        val response = RenderResponse.fromPacked(
+        val response = RenderResponse.unpack(
             PDFBridge.render(renderer,packed)
         )
         return RenderResponse(
-            response.transform,
-            response.pageSize
+            response.transforms,
         )
     }
 
