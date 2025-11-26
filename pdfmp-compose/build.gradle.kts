@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.publish)
 }
 
+version = project.findProperty("version") as? String ?: "0.1.0-SNAPSHOT1"
 
 kotlin {
     jvmToolchain(21)
@@ -56,9 +57,9 @@ android {
 
 
 mavenPublishing {
-    signAllPublications()
+//    signAllPublications()
     publishToMavenCentral(true)
-    coordinates("com.dshatz.pdfmp", "pdfmp-compose", "1.0.0")
+    coordinates("com.dshatz.pdfmp", "pdfmp-compose", project.version.toString())
 
     pom {
         name.set("PDF Multiplatform")
