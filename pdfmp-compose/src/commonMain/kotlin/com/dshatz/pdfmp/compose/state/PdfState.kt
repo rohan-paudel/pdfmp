@@ -157,7 +157,7 @@ data class PdfState(
         val newRenderingY = (mouseAbsY * scalingRatio) - centroid.y
 
         val mouseAbsX = renderingX.floatValue + centroid.x
-        val newRenderingX = (mouseAbsX * scalingRatio) - centroid.x
+        val newRenderingX = if (newScale == 1f) 0f else (mouseAbsX * scalingRatio) - centroid.x
 
         scale.value = newScale
         renderingY.floatValue = newRenderingY.coerceAtLeast(0f)
