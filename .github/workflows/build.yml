@@ -40,8 +40,12 @@ jobs:
       - name: Publish to Maven Repository
         run: |
           VERSION=$(echo "${{ steps.get_version.outputs.version }}")
-          ./gradlew :pdfmp:publishAndReleaseToMavenCentral -Pversion=$VERSION -Dorg.gradle.configuration-cache=false
-          ./gradlew :pdfmp-compose:publishAndReleaseToMavenCentral -Pversion=$VERSION -Dorg.gradle.configuration-cache=false
+          ./gradlew \
+            :pdfmp:publishAndReleaseToMavenCentral \
+            :pdfmp-compose:publishAndReleaseToMavenCentral \
+            -Pversion=$VERSION \
+            --build-cache \
+            --no-configuration-cache
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_PASSWORD }}
