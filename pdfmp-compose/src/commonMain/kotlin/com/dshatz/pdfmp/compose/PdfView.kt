@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -27,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.zIndex
@@ -34,8 +34,14 @@ import com.dshatz.pdfmp.compose.platformModifier.platformScrollableModifier
 import com.dshatz.pdfmp.compose.state.PdfState
 import com.dshatz.pdfmp.compose.tools.TransformedBitmapRenderer
 import com.dshatz.pdfmp.compose.tools.pageTransformModifier
+import com.dshatz.pdfmp.model.calculateSize
 import kotlinx.coroutines.delay
 
+/**
+ * Display a PDF document from the given [state].
+ *
+ * Please enforce the size using either `Modifier.fillMaxSize` or `Modifier.size`.
+ */
 @Composable
 fun PdfView(
     state: PdfState,
@@ -112,14 +118,23 @@ private fun PdfViewport(
 
 
 
-    if (transforms == image?.loadedTransforms) {
-        image?.let { img ->
-            Image(
-                contentScale = ContentScale.FillBounds,
-                bitmap = img.composeBitmap(),
-                contentDescription = null,
-                modifier = modifier
-            )
+    val sliceSize = image?.loadedTransforms?.calculateSize()?.let {
+        with(LocalDensity.current) {
+            IntSize(it.first, it.second).toSize().toDpSize()
+        }
+    }
+    Box(modifier, contentAlignment = Alignment.TopStart) {
+        if (transforms == image?.loadedTransforms) {
+            image?.let { img ->
+                sliceSize?.let {
+                    Image(
+                        contentScale = ContentScale.FillBounds,
+                        bitmap = img.composeBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.requiredSize(sliceSize)
+                    )
+                }
+            }
         }
     }
 }

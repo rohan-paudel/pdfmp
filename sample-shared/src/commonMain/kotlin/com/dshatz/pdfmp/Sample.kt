@@ -1,6 +1,7 @@
 package com.dshatz.pdfmp
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -13,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.dshatz.pdfmp.compose.PdfView
 import com.dshatz.pdfmp.compose.source.asyncPdfResource
@@ -21,7 +23,7 @@ import pdf_multiplatform.sample_shared.generated.resources.Res
 
 @Composable
 fun Sample() {
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().background(Color.Gray)) {
         var selected by remember { mutableStateOf(1) }
         val truncatedRange = 2..3
         PrimaryTabRow(
@@ -43,12 +45,22 @@ fun Sample() {
                     Text("Pages $truncatedRange")
                 }
             )
+
+            Tab(
+                selected = selected == 2,
+                onClick = { selected = 2 },
+                content = {
+                    Text("Landscape")
+                }
+            )
         }
         AnimatedContent(selected, modifier = Modifier.weight(1f)) {
             if (it == 0) {
                 FullDoc()
-            } else {
+            } else if (it == 1) {
                 TruncatedDoc(truncatedRange)
+            } else {
+                LandscapeDoc()
             }
         }
 
@@ -78,6 +90,21 @@ private fun TruncatedDoc(range: IntRange) {
 
     res?.let {
         val pdf = rememberPdfState(it, range)
+        PdfView(
+            pdf,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+private fun LandscapeDoc() {
+    val res by asyncPdfResource {
+        Res.readBytes("files/landscape.pdf")
+    }
+
+    res?.let {
+        val pdf = rememberPdfState(it)
         PdfView(
             pdf,
             modifier = Modifier.fillMaxSize()
