@@ -92,10 +92,22 @@ kotlin {
     jvm()
 
     // Android Native Targets
-    androidNativeX64 { setUpPdfiumCinterop(); setupSharedLib() }
-    androidNativeArm64 { setUpPdfiumCinterop(); setupSharedLib() }
-    androidNativeArm32 { setUpPdfiumCinterop(); setupSharedLib() }
-    androidNativeX86 { setUpPdfiumCinterop(); setupSharedLib() }
+
+    val androidTargets = listOf(
+        androidNativeX64 {  setUpPdfiumCinterop(); setupSharedLib() },
+        androidNativeArm64 {  setUpPdfiumCinterop(); setupSharedLib() },
+        androidNativeArm32 {  setUpPdfiumCinterop(); setupSharedLib() },
+        androidNativeX86 {  setUpPdfiumCinterop(); setupSharedLib() },
+    )
+
+    configure(androidTargets) {
+        binaries.all {
+            // Force the linker to use 16KB alignment
+            linkerOpts("-z", "max-page-size=16384")
+            linkerOpts("-Wl,--allow-shlib-undefined")
+        }
+    }
+
 
     // Desktop Native Targets
     linuxX64 { setUpPdfiumCinterop(); setupSharedLib() }
