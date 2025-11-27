@@ -1,6 +1,6 @@
 # PDF Viewer library for Kotlin Multiplatform and Compose Multiplatform.
 
-This library wraps [libpdfium]([url](https://pdfium.googlesource.com/pdfium/)) (the Chromium PDF engine). The pre-compiled pdfium files are taken from [here]([url](https://github.com/bblanchon/pdfium-binaries)) and bundles into this library.
+This library wraps [libpdfium](https://pdfium.googlesource.com/pdfium/) (the Chromium PDF engine). The pre-compiled pdfium files are taken from [here](https://github.com/bblanchon/pdfium-binaries) and bundled into this library.
 
 ## Supported targets
 - Android
