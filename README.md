@@ -17,11 +17,11 @@ This library wraps [libpdfium](https://pdfium.googlesource.com/pdfium/) (the Chr
  ### Add the dependency
  
  ```kotlin
- implementation("com.dshatz.pdfmp:pdfmp-compose:1.0.4")
+ implementation("com.dshatz.pdfmp:pdfmp-compose:1.0.6")
 ```
 
 ```toml
-pdfmp = { module = "com.dshatz.pdfmp:pdfmp-compose", version = "1.0.4" }
+pdfmp = { module = "com.dshatz.pdfmp:pdfmp-compose", version = "1.0.6" }
 ```
 
 ### Load the pdf
