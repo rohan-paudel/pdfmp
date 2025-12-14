@@ -22,7 +22,7 @@ internal actual fun CurrentImage.toImageBitmap(): RecyclableBitmap {
             val bufferedImage = BufferedImage(
                 width,
                 height,
-                BufferedImage.TYPE_INT_BGR
+                BufferedImage.TYPE_INT_ARGB
             )
 
             val targetPixels = (bufferedImage.raster.dataBuffer as DataBufferInt).data

@@ -169,7 +169,6 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
                     }
                 }
 
-                // 4. Copy the final result to the user's buffer
                 val totalByteCount = totalHeight * combinedStride
                 memScoped {
                     val targetPtr: CPointer<out CPointed> = bufferAddress.toCPointer<CPointed>()
@@ -192,7 +191,9 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
         }
     }
 
-    // You should call this when the Screen/Component is destroyed
+    /**
+     * Call this when the Screen/Component is destroyed
+     */
     actual fun close() = synchronized(this) {
         runCatching {
             if (doc != null) {

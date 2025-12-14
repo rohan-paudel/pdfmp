@@ -53,14 +53,24 @@ fun Sample() {
                     Text("Landscape")
                 }
             )
+
+            Tab(
+                selected = selected == 3,
+                onClick = { selected = 3 },
+                content = {
+                    Text("Colorful")
+                }
+            )
         }
         AnimatedContent(selected, modifier = Modifier.weight(1f)) {
             if (it == 0) {
                 FullDoc()
             } else if (it == 1) {
                 TruncatedDoc(truncatedRange)
-            } else {
+            } else if (it == 2) {
                 LandscapeDoc()
+            } else {
+                ColoredDoc()
             }
         }
 
@@ -101,6 +111,21 @@ private fun TruncatedDoc(range: IntRange) {
 private fun LandscapeDoc() {
     val res by asyncPdfResource {
         Res.readBytes("files/landscape.pdf")
+    }
+
+    res?.let {
+        val pdf = rememberPdfState(it)
+        PdfView(
+            pdf,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+private fun ColoredDoc() {
+    val res by asyncPdfResource {
+        Res.readBytes("files/sample3.pdf")
     }
 
     res?.let {

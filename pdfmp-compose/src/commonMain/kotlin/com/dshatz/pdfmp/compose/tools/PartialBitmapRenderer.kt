@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.IntOffset
@@ -53,6 +54,7 @@ fun PartialBitmapRenderer(
 fun TransformedBitmapRenderer(
     bitmap: ImageBitmap,
     transform: PageTransform,
+    colorFilter: ColorFilter? = null,
     modifier: Modifier = Modifier
 ) {
     Canvas(modifier = modifier) {
@@ -70,6 +72,7 @@ fun TransformedBitmapRenderer(
         if (safeSrcWidth > 0 && safeSrcHeight > 0) {
             drawImage(
                 image = bitmap,
+                colorFilter = colorFilter,
                 srcOffset = IntOffset(srcX, srcY),
                 srcSize = IntSize(safeSrcWidth, safeSrcHeight),
                 // 2. Draw it into the full size of this composable (which is set to dstSize in the parent)

@@ -86,13 +86,13 @@ private fun LazyListScope.FullDocumentBoxes(state: PdfState) {
         item(pageIdx) {
             val size by state.rememberScaledPageSize(pageIdx)
             Column(Modifier.requiredSize(size), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Text(
+                /*Text(
                     pageIdx.toString(),
                     fontSize = 60.sp,
                     color = Color.Gray,
                     modifier = Modifier.alpha(0.5f).zIndex(100f)
                 )
-                Text(size.toString())
+                Text(size.toString())*/
             }
         }
     }
@@ -129,8 +129,9 @@ private fun PdfViewport(
                 sliceSize?.let {
                     Image(
                         contentScale = ContentScale.FillBounds,
-                        bitmap = img.composeBitmap(),
+                        bitmap = img.composeBitmap().imageBitmap,
                         contentDescription = null,
+                        colorFilter = img.composeBitmap().colorFilter,
                         modifier = Modifier.requiredSize(sliceSize)
                     )
                 }
@@ -197,7 +198,8 @@ private fun BaseImage(
                     val bitmap = cachedImage.composeBitmap()
 
                     TransformedBitmapRenderer(
-                        bitmap = bitmap,
+                        bitmap = bitmap.imageBitmap,
+                        colorFilter = bitmap.colorFilter,
                         transform = transform,
                         modifier = Modifier.requiredSize(with(density) { dstSize.toDpSize() })
                     )

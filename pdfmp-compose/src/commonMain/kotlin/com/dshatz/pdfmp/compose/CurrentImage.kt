@@ -29,7 +29,9 @@ data class CurrentImage(
     }
 
     @Composable
-    fun composeBitmap(): ImageBitmap {
-        return toImageBitmap().also { bitmap.value = it }.imageBitmap
+    fun composeBitmap(): RecyclableBitmap {
+        return bitmap.value ?: toImageBitmap().also {
+            bitmap.value = it
+        }
     }
 }
