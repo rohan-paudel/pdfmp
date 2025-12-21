@@ -26,7 +26,7 @@ class DocumentStateTest {
         val scope = CoroutineScope(Dispatchers.Default)
         val renderer = mockk<PdfRenderer>()
         val state = PdfState(PdfSource.PdfPath(Path("")), pageSpacing = gap, scope = scope)
-        every { renderer.getPageRatios() } returns generateSequence { pageRatio }.take(pageCount).toList()
+        every { renderer.getPageRatios() } returns Result.success(generateSequence { pageRatio }.take(pageCount).toList())
         state.initPages(renderer)
 
         state.isInitialized.value = true
@@ -171,7 +171,7 @@ class DocumentStateTest {
     @Test
     fun scaled() {
         val state = getMockedState(gap = 100, viewportSize = Size(1000f, 2500f))
-        state.zoom(2f, Offset.Zero)
+        state.zoomBy(2f, Offset.Zero)
         // Zoom with mouse at 0,0
 
         // scaled 2x so width is 2000 and height is 2000 but viewport is still 1000x2500.

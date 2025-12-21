@@ -11,7 +11,7 @@ actual fun Modifier.platformPageTransformModifier(
 ): Modifier = composed {
     pointerInput(Unit) {
         detectTransformGesturesHighPriority { centroid, pan, zoom, _ ->
-            state.zoom(zoom, centroid)
+            state.zoomBy(zoom, centroid)
         }
     }
 }

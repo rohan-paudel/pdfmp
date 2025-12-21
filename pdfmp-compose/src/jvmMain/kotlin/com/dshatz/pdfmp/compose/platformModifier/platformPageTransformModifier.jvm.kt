@@ -26,7 +26,7 @@ private fun Modifier.desktopZoom(
             val scrollDelta = eventChange.scrollDelta
             val zoomFactor = if (scrollDelta.y < 0) 1.1f else 0.9f
 
-            state.zoom(
+            state.zoomBy(
                 zoomFactor = zoomFactor,
                 centroid = eventChange.position
             )

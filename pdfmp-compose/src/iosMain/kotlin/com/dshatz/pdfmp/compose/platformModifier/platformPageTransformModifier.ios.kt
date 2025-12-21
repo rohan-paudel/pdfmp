@@ -9,7 +9,7 @@ import com.dshatz.pdfmp.compose.tools.detectTransformGesturesHighPriority
 actual fun Modifier.platformPageTransformModifier(state: PdfState): Modifier = composed {
     pointerInput(Unit) {
         detectTransformGesturesHighPriority { centroid, _, zoom, _ ->
-            state.zoom(zoom, centroid)
+            state.zoomBy(zoom, centroid)
         }
     }
 }
