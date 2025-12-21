@@ -18,6 +18,7 @@ class PackTest {
             Random.nextInt(),
             Random.nextInt(),
             Random.nextInt(),
+            Random.nextInt(),
             Random.nextFloat()
         )
     }
@@ -38,6 +39,8 @@ class PackTest {
     fun `pack render request`() {
         val input = RenderRequest(
             transforms = generateSequence { randomPageTransform() }.take(Random.nextInt(10)).toList(),
+            0,
+            0,
             bufferAddress = Random.nextLong()
         )
         val bytes = input.pack()

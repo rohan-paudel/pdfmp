@@ -13,7 +13,8 @@ data class PageTransform(
     val rightCutoff: Int,
     val scaledWidth: Int,
     val scaledHeight: Int,
-    val scale: Float
+    val topGap: Int,
+    val scale: Float,
 ) {
 
     fun sliceSize(): Pair<Int, Int> {
@@ -23,6 +24,11 @@ data class PageTransform(
     val bufferSize: SizeB get() {
         val (width, height) = sliceSize()
         return SizeB(width * height * 4)
+    }
+
+    val bufferSizeWithGap: SizeB get() {
+        val (width, height) = sliceSize()
+        return SizeB(width * (height + topGap) * 4)
     }
 
     fun uncut(): PageTransform {
@@ -43,6 +49,7 @@ data class PageTransform(
             it.writeInt(rightCutoff)
             it.writeInt(scaledWidth)
             it.writeInt(scaledHeight)
+            it.writeInt(topGap)
             it.writeFloat(scale)
         }
     }
@@ -50,6 +57,7 @@ data class PageTransform(
     companion object {
         fun unpack(buffer: Buffer): PageTransform {
             return PageTransform(
+                buffer.readInt(),
                 buffer.readInt(),
                 buffer.readInt(),
                 buffer.readInt(),
@@ -68,7 +76,7 @@ fun List<PageTransform>.calculateSize(): Pair<Int, Int> {
         max(width, new.sliceSize().first)
     }
     val height = this.fold(0) { height, new ->
-        height + new.sliceSize().second
+        height + new.sliceSize().second + new.topGap
     }
     return width to height
 }

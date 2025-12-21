@@ -19,13 +19,12 @@ class ConsumerBufferPool {
             newBuffer
         }
         buffer.setUnfree()
-//        cleanDistant(page)
         return buffer
     }
 
     fun getBufferViewport(transforms: List<PageTransform>): ConsumerBuffer {
         val neededCapacity = transforms.fold(SizeB.ZERO) { total, new ->
-            total + new.bufferSize
+            total + new.bufferSizeWithGap
         }
 
         return bufferViewport?.takeUnless { it.capacity() < neededCapacity } ?: run {
@@ -41,20 +40,4 @@ class ConsumerBufferPool {
 
     private val totalUnfreeBufferMemory: SizeB
         get() = buffers.filter { !it.isFree }.fold(SizeB.ZERO) { s, buffer -> s + buffer.capacity() }
-
-
-    /*fun cleanDistant(currentPage: Int) {
-        bufferFullPage.keys.removeAll {
-            val remove = it !in (currentPage - BUFFER_PAGE_WINDOW)..(currentPage + BUFFER_PAGE_WINDOW)
-            if (remove) {
-                bufferFullPage[it]?.free()
-            }
-            remove
-
-        }
-    }*/
-
-    companion object {
-        const val BUFFER_PAGE_WINDOW = 2
-    }
 }

@@ -75,9 +75,9 @@ fun TransformedBitmapRenderer(
                 colorFilter = colorFilter,
                 srcOffset = IntOffset(srcX, srcY),
                 srcSize = IntSize(safeSrcWidth, safeSrcHeight),
-                // 2. Draw it into the full size of this composable (which is set to dstSize in the parent)
+//                dstOffset = IntOffset(0, transform.topGap),
                 dstSize = IntSize(size.width.toInt(), size.height.toInt()),
-                filterQuality = FilterQuality.Medium // smooths edges if scaling is involved
+                filterQuality = FilterQuality.Medium
             )
         }
     }

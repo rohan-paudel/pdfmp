@@ -15,7 +15,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import com.dshatz.pdfmp.ConsumerBuffer
 import com.dshatz.pdfmp.ConsumerBufferPool
 import com.dshatz.pdfmp.InitLib
@@ -25,16 +27,20 @@ import com.dshatz.pdfmp.model.RenderRequest
 import com.dshatz.pdfmp.model.RenderResponse
 import com.dshatz.pdfmp.source.PdfSource
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.min
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 @Composable
-fun rememberPdfState(pdfSource: PdfSource, pageRange: IntRange = 0..Int.MAX_VALUE): PdfState {
+fun rememberPdfState(
+    pdfSource: PdfSource,
+    pageRange: IntRange = 0..Int.MAX_VALUE,
+    pageSpacing: Dp = 0.dp
+): PdfState {
     val scope = rememberCoroutineScope()
-    val state = remember { PdfState(pdfSource, pageRange = pageRange, scope = scope) }
+    val pageSpacingPx = with (LocalDensity.current) { pageSpacing.toPx().toInt() }
+    val state = remember { PdfState(pdfSource, pageRange = pageRange, pageSpacing = pageSpacingPx, scope = scope) }
     state.OpenDisposableDocument()
     return state
 }
@@ -45,6 +51,7 @@ data class PdfState(
     val pageRange: IntRange = 0..Int.MAX_VALUE,
     val scale: MutableState<Float> = mutableFloatStateOf(1f),
     val viewport: MutableState<Size> = mutableStateOf(Size(1f, 1f)),
+    val pageSpacing: Int = 0,
     val scope: CoroutineScope
 ) {
     lateinit var renderer: PdfRenderer
@@ -56,7 +63,6 @@ data class PdfState(
 
     private val renderingY = mutableFloatStateOf(0f)
     private val renderingX = mutableFloatStateOf(0f)
-    private var lastGestureTime = 0L
 
     fun bind(
         listState: LazyListState,
@@ -119,8 +125,6 @@ data class PdfState(
     }
 
     fun onScroll(delta: Offset): Offset {
-        lastGestureTime = Clock.System.now().toEpochMilliseconds()
-
         val currentX = renderingX.floatValue
         val currentY = renderingY.floatValue
 
@@ -130,7 +134,9 @@ data class PdfState(
             totalContentHeight += scaledPageHeight(i)
         }
 
-        // 2. Max Y is Total Height minus Viewport Height
+        //Account for page spacings
+        totalContentHeight += scaledPageSpacing() * (pages.size - 1)
+
         val maxY = (totalContentHeight - viewport.value.height).coerceAtLeast(0f)
         val newX = (currentX - delta.x).coerceIn(0f, maxX)
         val newY = (currentY - delta.y).coerceIn(0f, maxY)
@@ -145,8 +151,6 @@ data class PdfState(
     }
 
     fun zoom(zoomFactor: Float, centroid: Offset) {
-        lastGestureTime = Clock.System.now().toEpochMilliseconds()
-
         val currentScale = scale.value
         val newScale = (currentScale * zoomFactor).coerceIn(1f, 5.0f)
         if (currentScale == newScale) return
@@ -185,6 +189,8 @@ data class PdfState(
         val currentScale = scale.value
         val currentScaledWidth = viewportWidth * currentScale
 
+        val verticalSpacing = scaledPageSpacing()
+
         val visiblePages = mutableListOf<VisiblePageInfo>()
         var accumulatedHeight = 0f
 
@@ -199,12 +205,21 @@ data class PdfState(
                 val leftCutoff = currentX.coerceIn(0f, currentScaledWidth)
                 val rightCutoff = (currentScaledWidth - (currentX + viewportWidth)).coerceAtLeast(0f)
 
+                val topGap = if (visiblePages.isEmpty()) (pageTop - currentY).coerceAtLeast(0f).toInt()
+                else verticalSpacing
+
                 visiblePages.add(VisiblePageInfo(
-                    i, topCutoff, bottomCutoff, leftCutoff.toInt(), rightCutoff.toInt(),
-                    currentScaledWidth, pageHeight
+                    page = i,
+                    topCutoff = topCutoff,
+                    bottomCutoff = bottomCutoff,
+                    leftCutoff = leftCutoff.toInt(),
+                    rightCutoff = rightCutoff.toInt(),
+                    scaledWidth = currentScaledWidth,
+                    scaledHeight = pageHeight,
+                    topGap = topGap
                 ))
             }
-            accumulatedHeight += pageHeight
+            accumulatedHeight += pageHeight + verticalSpacing
             if (accumulatedHeight > currentY + viewportHeight) break
         }
         return visiblePages
@@ -213,20 +228,35 @@ data class PdfState(
     private fun getPageAndOffsetForAbsoluteY(absY: Float, s: Float): Pair<Int, Int> {
         var acc = 0f
         val w = viewport.value.width * s
-        for(i in pages.keys) {
+        val spacing = pageSpacing.toFloat()
+
+        for (i in pages.keys) {
             val h = scaledPageHeight(i, w)
-            if (acc + h > absY) return i to (absY - acc).toInt()
-            acc += h
+            if (acc + h + spacing > absY) {
+                val offset = (absY - acc).toInt()
+                return i to minOf(offset, h.toInt())
+            }
+            acc += h + spacing
         }
         return 0 to 0
     }
 
+    fun scaledPageSpacing(): Int {
+        return (pageSpacing * scale.value).toInt()
+    }
+
     fun renderViewport(transforms: List<PageTransform>): Pair<RenderResponse, ConsumerBuffer> {
+        // We can just grab the offset of the first visible page.
+        // Subsequent pages are automatically spaced by the native renderer.
+        val topOffset = visiblePages.value.firstOrNull()?.topGap ?: 0
+
         val buffer = bufferPool.getBufferViewport(transforms)
         return buffer.withAddress {
             val response = renderer.render(
                 RenderRequest(
                     transforms,
+                    pageSpacing,
+                    topOffset,
                     it
                 )
             )
@@ -240,7 +270,9 @@ data class PdfState(
             val response = renderer.render(
                 RenderRequest(
                     listOf(transform),
-                    it
+                    0,
+                    0,
+                    it,
                 )
             )
             response to buffer
@@ -259,6 +291,7 @@ data class PdfState(
                     rightCutoff = it.rightCutoff,
                     scaledWidth = it.scaledWidth.toInt(),
                     scaledHeight = it.scaledHeight.toInt(),
+                    topGap = it.topGap,
                     scale = scale.value
                 )
             }
@@ -311,7 +344,11 @@ data class VisiblePageInfo(
     val leftCutoff: Int,
     val rightCutoff: Int,
     val scaledWidth: Float,
-    val scaledHeight: Float
+    val scaledHeight: Float,
+    /**
+     * distance from viewport top (0 if page overlaps top edge)
+     */
+    val topGap: Int = 0
 ) {
     init {
         if (scaledHeight.toInt() - topCutoff.toInt() - bottomCutoff.toInt() < 0) error("Invalid parameters $this")

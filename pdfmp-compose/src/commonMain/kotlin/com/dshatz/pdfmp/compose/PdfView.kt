@@ -1,18 +1,26 @@
 package com.dshatz.pdfmp.compose
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.Card
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -26,7 +34,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.zIndex
@@ -64,7 +74,7 @@ fun PdfView(
             LazyColumn(
                 state = listState,
                 userScrollEnabled = false,
-                modifier = Modifier.matchParentSize().platformScrollableModifier(state)
+                modifier = Modifier.matchParentSize().platformScrollableModifier(state),
             ) {
                 FullDocumentBoxes(state)
             }
@@ -84,15 +94,22 @@ fun PdfView(
 private fun LazyListScope.FullDocumentBoxes(state: PdfState) {
     state.pages.forEach { (pageIdx, page) ->
         item(pageIdx) {
+            val density = LocalDensity.current
             val size by state.rememberScaledPageSize(pageIdx)
-            Column(Modifier.requiredSize(size), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                /*Text(
-                    pageIdx.toString(),
-                    fontSize = 60.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.alpha(0.5f).zIndex(100f)
-                )
-                Text(size.toString())*/
+            val withSpacing by remember(size) {
+                derivedStateOf {
+                    DpSize(
+                        size.width,
+                        size.height
+                    )
+                }
+            }
+            val bottomPadding = if (pageIdx != state.pages.size - 1) state.scaledPageSpacing() else 0
+            Column(Modifier
+                .requiredSize(size)
+                .padding(bottom = with(density) { bottomPadding.toDp() }),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center) {
             }
         }
     }
@@ -161,7 +178,8 @@ private fun BaseImage(
                 val fullPageTransform = transform.uncut().copy(
                     scale = 1f,
                     scaledWidth = width1x,
-                    scaledHeight = height1x
+                    scaledHeight = height1x,
+                    topGap = 0
                 )
 
                 val (response, buffer) = state.renderFullPage(fullPageTransform)
@@ -183,16 +201,20 @@ private fun BaseImage(
         transforms.forEach { transform ->
             val cachedImage = baseImageCache[transform.pageIndex]
 
-            // 1. Calculate the size this slice takes up on the screen
             val (sliceWidth, sliceHeight) = transform.sliceSize()
-            val dstSize = Size(sliceWidth.toFloat(), sliceHeight.toFloat())
+            val dstSize = IntSize(sliceWidth, sliceHeight)
 
-            // 2. Convert to DP for the Compose container size
             val density = LocalDensity.current
-            val boxSize = with(density) { dstSize.toDpSize() }
+            val boxSize = with(density) {
+                dstSize.toSize().toDpSize()
+            }
 
             Box(
-                modifier = Modifier.size(boxSize)
+                modifier = Modifier
+                    // Order matters - first padding then size!
+                    // We need total occupied height to be height + padding.
+                    .padding(top = with (density) { transform.topGap.toDp() })
+                    .size(boxSize)
             ) {
                 if (cachedImage != null) {
                     val bitmap = cachedImage.composeBitmap()
@@ -201,9 +223,13 @@ private fun BaseImage(
                         bitmap = bitmap.imageBitmap,
                         colorFilter = bitmap.colorFilter,
                         transform = transform,
-                        modifier = Modifier.requiredSize(with(density) { dstSize.toDpSize() })
+                        modifier = Modifier.matchParentSize()
                     )
                 }
+                /*Text(
+                    "Size: $boxSize; TopGap: ${transform.topGap}",
+                    modifier = Modifier.align(Alignment.TopEnd).background(Color.LightGray)
+                )*/
             }
         }
     }

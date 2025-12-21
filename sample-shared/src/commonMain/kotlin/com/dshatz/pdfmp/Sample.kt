@@ -84,7 +84,7 @@ private fun FullDoc() {
     }
 
     res?.let {
-        val pdf = rememberPdfState(it)
+        val pdf = rememberPdfState(it, pageSpacing = 100.dp)
         PdfView(
             pdf,
             modifier = Modifier.fillMaxSize()
