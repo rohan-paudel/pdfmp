@@ -18,7 +18,7 @@ fun _getBufferAddress(
     val addressPointer = env.pointed.pointed?.GetDirectBufferAddress?.invoke(env, buffer.reinterpret())
     val address = addressPointer?.rawValue?.toLong()?.convert<jlong>()
     return address ?: run {
-        println("Address is null!")
+        w("Address is null!")
         -1
     }
 }

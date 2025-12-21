@@ -14,8 +14,8 @@ class ConsumerBufferPool {
         val buffer = buffers.firstOrNull { it.isFree && it.capacity() >= neededCapacity } ?: run {
             val newBuffer = ConsumerBufferUtil.allocate(neededCapacity)
             buffers.add(newBuffer)
-            println("[$page] Allocated ${neededCapacity.stringMB} ${transform.scaledWidth} x ${transform.scaledHeight}")
-            println("Total buffer memory: ${totalBufferMemory.stringMB}, Unfree: ${totalUnfreeBufferMemory.stringMB}")
+            d("[$page] Allocated ${neededCapacity.stringMB} ${transform.scaledWidth} x ${transform.scaledHeight}")
+            d("Total buffer memory: ${totalBufferMemory.stringMB}, Unfree: ${totalUnfreeBufferMemory.stringMB}")
             newBuffer
         }
         buffer.setUnfree()
@@ -29,7 +29,7 @@ class ConsumerBufferPool {
 
         return bufferViewport?.takeUnless { it.capacity() < neededCapacity } ?: run {
             val newBuffer = ConsumerBufferUtil.allocate(neededCapacity)
-            println("Allocated viewport buffer ${neededCapacity.stringMB}")
+            d("Allocated viewport buffer ${neededCapacity.stringMB}")
             this.bufferViewport = newBuffer
             newBuffer
         }

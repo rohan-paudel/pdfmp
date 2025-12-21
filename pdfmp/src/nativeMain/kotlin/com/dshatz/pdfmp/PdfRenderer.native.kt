@@ -39,7 +39,7 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
             }
         }
         if (doc == null || doc.rawValue == nativeNullPtr) {
-            println("ERROR: FPDF_DOCUMENT failed to load. Check file path/integrity/password. ${FPDF_GetLastError()}")
+            w("FPDF_DOCUMENT failed to load. Check file path/integrity/password. ${FPDF_GetLastError()}")
         }
     }
 
@@ -47,7 +47,7 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
     actual fun render(renderRequest: RenderRequest): RenderResponse = synchronized(this) {
         if (doc == null) {
             val error = FPDF_GetLastError()
-            println("Failed to load PDF from $source. Error code: $error")
+            w("Failed to load PDF from $source. Error code: $error")
             throw IllegalStateException("Failed to load PDF from $source. Error code: $error")
         }
 
@@ -62,7 +62,7 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
             val document = doc ?: throw IllegalStateException("Document is not open")
             return FPDF_GetPageCount(document)
         }.getOrElse {
-            println("Could not get page count: ${it.message}")
+            e("Could not get page count", it)
             0
         }
     }
@@ -73,7 +73,7 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
             FPDF_LoadPage(this, pageIndex)
                 ?: error("Failed to load page $pageIndex. Error: ${FPDF_GetLastError()}")
         }.getOrElse {
-            println(it.message)
+            e("Failed to open page", it)
             return null
         }
     }
@@ -170,7 +170,7 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
             }
 
         }.getOrElse {
-            println("Could not render stacked pages: ${it.message}")
+            e("Could not render stacked pages", it)
             throw(it)
         }
     }
@@ -186,7 +186,7 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
                 doc = null
             }
         }.onFailure {
-            println("Could not close document: ${it.message}")
+            e("Could not close document", it)
         }
         Unit
         // FPDF_DestroyLibrary() // Call this only when app exits strictly
@@ -211,7 +211,7 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
                 FPDF_ClosePage(page)
             }
         }.getOrElse { e ->
-            println("Native Error getting aspect ratio: ${e.message}")
+            e("Native Error getting aspect ratio", e)
             0.707f
         }
     }

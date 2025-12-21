@@ -14,7 +14,7 @@ actual class InitLib {
             loadLibraryFromJar("pdfmp")
             PDFBridge.initNative()
         } catch (e: UnsatisfiedLinkError) {
-            println("Failed to load native library: ${e.message}")
+            e("Failed to load native library", e)
         }
     }
 
@@ -38,7 +38,7 @@ actual class InitLib {
         try {
             System.load(tempFile.absolutePath)
         } catch (e: UnsatisfiedLinkError) {
-            System.err.println("Failed to load library: ${tempFile.absolutePath}")
+            e("Failed to load library: ${tempFile.absolutePath}", e)
             throw e
         }
     }

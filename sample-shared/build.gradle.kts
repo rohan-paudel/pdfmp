@@ -28,15 +28,10 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":pdfmp-compose"))
-//            implementation("com.dshatz.pdfmp:pdfmp-compose-jvm:unspecified")
             implementation(compose.runtime)
             implementation(compose.material3)
             implementation(compose.components.resources)
         }
-        /*jvmMain.dependencies {
-            implementation(compose.desktop.currentOs)
-            implementation(compose.desktop.common)
-        }*/
     }
 }
 

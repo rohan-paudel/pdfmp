@@ -98,7 +98,7 @@ fun PdfRendererPtr.getRenderer(): PdfRenderer {
         val rendererRef = toCPointer<COpaque>()!!.asStableRef<PdfRenderer>()
         rendererRef.get()
     }.getOrElse {
-        println("Could not get renderer: ${it.message}")
+        e("Could not get renderer", it)
         error("")
     }
 }

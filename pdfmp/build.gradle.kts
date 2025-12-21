@@ -66,24 +66,26 @@ private fun KotlinNativeTarget.setupSharedLib() {
 
 kotlin {
     applyDefaultHierarchyTemplate {
-        group("native") {
-            group("nativeJni") {
-                group("desktopNative") {
-                    withLinux()
-                    withMingw()
-                    withMacos()
+        common {
+            group("native") {
+                group("nativeJni") {
+                    group("desktopNative") {
+                        withLinux()
+                        withMingw()
+                        withMacos()
+                    }
+                    withAndroidNative()
                 }
-                withAndroidNative()
-            }
-            withIos()
-        }
-        group("consumer") {
-            group("consumerJni") {
-                withJvm()
-                withAndroidTarget()
-            }
-            group("consumerNative") {
                 withIos()
+            }
+            group("consumer") {
+                group("consumerJni") {
+                    withJvm()
+                    withAndroidTarget()
+                }
+                group("consumerNative") {
+                    withIos()
+                }
             }
         }
     }

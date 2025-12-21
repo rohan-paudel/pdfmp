@@ -35,7 +35,7 @@ actual class ConsumerBuffer(val byteArray: ByteArray) {
 
 actual object ConsumerBufferUtil {
     actual fun allocate(size: SizeB): ConsumerBuffer {
-        println("Allocating buffer ByteArray($size)")
+        d("Allocating buffer ByteArray($size)")
         return ConsumerBuffer(ByteArray(size.bytes))
     }
 }
