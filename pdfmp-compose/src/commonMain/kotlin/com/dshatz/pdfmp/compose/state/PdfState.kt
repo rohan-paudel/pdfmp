@@ -23,13 +23,13 @@ import com.dshatz.pdfmp.ConsumerBufferPool
 import com.dshatz.pdfmp.InitLib
 import com.dshatz.pdfmp.model.PageTransform
 import com.dshatz.pdfmp.PdfRenderer
+import com.dshatz.pdfmp.e
 import com.dshatz.pdfmp.model.RenderRequest
 import com.dshatz.pdfmp.model.RenderResponse
 import com.dshatz.pdfmp.source.PdfSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.min
-import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 @Composable
@@ -54,17 +54,23 @@ data class PdfState(
     val pageSpacing: Int = 0,
     val scope: CoroutineScope
 ) {
-    lateinit var renderer: PdfRenderer
-    lateinit var listState: LazyListState
-    lateinit var horizontalScrollState: ScrollState
+    private lateinit var renderer: PdfRenderer
+    private lateinit var listState: LazyListState
+    private lateinit var horizontalScrollState: ScrollState
 
     private lateinit var bufferPool: ConsumerBufferPool
-    lateinit var pages: LinkedHashMap<Int, PdfPageState>
+    internal lateinit var pages: LinkedHashMap<Int, PdfPageState>
 
     private val renderingY = mutableFloatStateOf(0f)
     private val renderingX = mutableFloatStateOf(0f)
 
-    fun bind(
+    private val _displayState = mutableStateOf<DisplayState>(DisplayState.Idle)
+    val displayState: State<DisplayState> = _displayState
+    internal val isReady = derivedStateOf {
+        _displayState.value is DisplayState.Ready || _displayState.value is DisplayState.Displaying
+    }
+
+    internal fun bind(
         listState: LazyListState,
         horizontalScrollState: ScrollState,
     ) {
@@ -73,7 +79,9 @@ data class PdfState(
     }
 
     internal val visiblePages: State<List<VisiblePageInfo>> = derivedStateOf<List<VisiblePageInfo>> {
-        calculateVisiblePages()
+        calculateVisiblePages().also {
+            _displayState.value = DisplayState.Displaying(it.map { page -> page.page })
+        }
     }
 
     private fun scaledPageWidth(viewport: MutableState<Size>, scale: State<Float>): Float {
@@ -104,7 +112,7 @@ data class PdfState(
     }
 
     @Composable
-    fun rememberScaledPageSize(page: Int): State<DpSize> {
+    internal fun rememberScaledPageSize(page: Int): State<DpSize> {
         val density = LocalDensity.current
         val width by rememberScaledPageWidth(page)
         val height by rememberScaledPageHeight(page)
@@ -120,11 +128,11 @@ data class PdfState(
 
     private val horizontalScrollOffset = mutableStateOf(0)
 
-    fun reportHorizontalOffset(offset: Int) {
+    internal fun reportHorizontalOffset(offset: Int) {
         horizontalScrollOffset.value = offset
     }
 
-    fun onScroll(delta: Offset): Offset {
+    internal fun onScroll(delta: Offset): Offset {
         val currentX = renderingX.floatValue
         val currentY = renderingY.floatValue
 
@@ -150,7 +158,7 @@ data class PdfState(
         return delta
     }
 
-    fun zoom(zoomFactor: Float, centroid: Offset) {
+    internal fun zoom(zoomFactor: Float, centroid: Offset) {
         val currentScale = scale.value
         val newScale = (currentScale * zoomFactor).coerceIn(1f, 5.0f)
         if (currentScale == newScale) return
@@ -180,7 +188,7 @@ data class PdfState(
     }
 
     private fun calculateVisiblePages(): List<VisiblePageInfo> {
-        if (!isInitialized.value || pages.isEmpty()) return emptyList()
+        if (!this::pages.isInitialized || pages.isEmpty()) return emptyList()
 
         val currentY = renderingY.floatValue
         val currentX = renderingX.floatValue
@@ -241,11 +249,11 @@ data class PdfState(
         return 0 to 0
     }
 
-    fun scaledPageSpacing(): Int {
+    internal fun scaledPageSpacing(): Int {
         return (pageSpacing * scale.value).toInt()
     }
 
-    fun renderViewport(transforms: List<PageTransform>): Pair<RenderResponse, ConsumerBuffer> {
+    internal fun renderViewport(transforms: List<PageTransform>): Pair<RenderResponse, ConsumerBuffer>? {
         // We can just grab the offset of the first visible page.
         // Subsequent pages are automatically spaced by the native renderer.
         val topOffset = visiblePages.value.firstOrNull()?.topGap ?: 0
@@ -260,11 +268,16 @@ data class PdfState(
                     it
                 )
             )
-            response to buffer
+            response.map { resp ->
+                resp to buffer
+            }.onFailure { error ->
+                _displayState.value = DisplayState.Error(error)
+                e("Failed to render viewport", error)
+            }.getOrNull()
         }
     }
 
-    fun renderFullPage(transform: PageTransform): Pair<RenderResponse, ConsumerBuffer> {
+    internal fun renderFullPage(transform: PageTransform): Pair<RenderResponse, ConsumerBuffer>? {
         val buffer = bufferPool.getBufferPage(transform)
         return buffer.withAddress {
             val response = renderer.render(
@@ -275,12 +288,17 @@ data class PdfState(
                     it,
                 )
             )
-            response to buffer
+            response.map { resp ->
+                resp to buffer
+            }.onFailure { error ->
+                _displayState.value = DisplayState.Error(error)
+                e("Failed to render pages", error)
+            }.getOrNull()
         }
     }
 
     @Composable
-    fun produceImageTransforms(): State<List<PageTransform>> {
+    internal fun produceImageTransforms(): State<List<PageTransform>> {
         return derivedStateOf {
             visiblePages.value.map {
                 PageTransform(
@@ -298,31 +316,31 @@ data class PdfState(
         }
     }
 
-    val isInitialized: MutableState<Boolean> = mutableStateOf(false)
-
-    fun initPages(renderer: PdfRenderer) {
-        val allRatios = renderer.getPageRatios()
-        val truncated = allRatios.withIndex()
-            .drop(pageRange.first).take(min(pageRange.last - pageRange.first, allRatios.size - pageRange.first) + 1)
-        val map = linkedMapOf<Int, PdfPageState>()
-        truncated.forEach { (pageIdx, ratio) ->
-            map[pageIdx] = PdfPageState(
-                pageIdx,
-                aspectRatio = ratio
-            )
+    fun initPages(renderer: PdfRenderer): Result<Unit> {
+        return renderer.getPageRatios().mapCatching { allRatios ->
+            val truncated = allRatios.withIndex()
+                .drop(pageRange.first).take(min(pageRange.last - pageRange.first, allRatios.size - pageRange.first) + 1)
+            val map = linkedMapOf<Int, PdfPageState>()
+            truncated.forEach { (pageIdx, ratio) ->
+                map[pageIdx] = PdfPageState(
+                    pageIdx,
+                    aspectRatio = ratio
+                )
+            }
+            pages = map
         }
-        pages = map
     }
     @Composable
     fun OpenDisposableDocument() {
+        _displayState.value = DisplayState.Initializing
         InitLib().init()
         DisposableEffect(pdfSource) {
             renderer = PdfRenderer(pdfSource)
             bufferPool = ConsumerBufferPool()
-            initPages(renderer)
-            isInitialized.value = true
+            val initResult = initPages(renderer)
+            (initResult.exceptionOrNull()?.let(DisplayState::Error) ?: DisplayState.Ready).let { _displayState.value = it }
             onDispose {
-                isInitialized.value = false
+                _displayState.value = DisplayState.Idle
                 renderer.close()
             }
         }

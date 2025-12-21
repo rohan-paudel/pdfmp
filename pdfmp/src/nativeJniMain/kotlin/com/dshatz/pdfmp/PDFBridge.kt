@@ -5,6 +5,7 @@ package com.dshatz.pdfmp
 import com.dshatz.pdfmp.PDFBridgeConst.CLASS_NAME
 import com.dshatz.pdfmp.PDFBridgeConst.PACKAGE_NAME
 import com.dshatz.pdfmp.model.RenderRequest
+import com.dshatz.pdfmp.model.RenderResponse
 import com.dshatz.pdfmp.source.PdfSource
 import dev.datlag.nkommons.JNIConnect
 import kotlinx.cinterop.COpaque
@@ -13,7 +14,18 @@ import kotlinx.cinterop.StableRef
 import kotlinx.cinterop.asStableRef
 import kotlinx.cinterop.toCPointer
 import kotlinx.cinterop.toLong
+import kotlinx.io.Buffer
+import kotlinx.io.readByteArray
 
+
+private fun <T> returnResult(
+    result: Result<T>,
+    packData: Buffer.(T) -> Unit,
+): ByteArray  {
+    val buffer = Buffer()
+    result.pack(buffer, packData)
+    return buffer.readByteArray()
+}
 
 @JNIConnect(
     packageName = PACKAGE_NAME,
@@ -29,8 +41,8 @@ fun initNative() {
     className = CLASS_NAME,
     functionName = "getPageCount"
 )
-fun getPageCount(renderer: PdfRendererPtr): Int {
-    return renderer.getRenderer().getPageCount()
+fun getPageCount(renderer: PdfRendererPtr): ByteArray {
+    return returnResult(renderer.getRenderer().getPageCount(), Buffer::writeInt)
 }
 
 @JNIConnect(
@@ -38,11 +50,13 @@ fun getPageCount(renderer: PdfRendererPtr): Int {
     className = CLASS_NAME,
     functionName = "openFile"
 )
-fun openFile(packedSource: ByteArray): PdfRendererPtr {
+fun openFile(packedSource: ByteArray): ByteArray {
     val renderer = PdfRenderer(PdfSource.unpack(packedSource))
-    renderer.openFile()
-    val stableRef = StableRef.create(renderer)
-    return stableRef.asCPointer().toLong()
+    val result = renderer.openFile().map {
+        val stableRef = StableRef.create(renderer)
+        stableRef.asCPointer().toLong()
+    }
+    return returnResult(result, Buffer::writeLong)
 }
 
 @JNIConnect(
@@ -60,7 +74,7 @@ fun getAspectRatio(rendererPtr: PdfRendererPtr, pageIndex: Int): Float {
     functionName = "getPageRatios"
 )
 fun getPageRatios(rendererPtr: PdfRendererPtr): ByteArray {
-    return rendererPtr.getRenderer().getPageRatios().packMap()
+    return returnResult(rendererPtr.getRenderer().getPageRatios(), ::packMap)
 }
 
 @JNIConnect(
@@ -71,7 +85,10 @@ fun getPageRatios(rendererPtr: PdfRendererPtr): ByteArray {
 fun render(renderer: PdfRendererPtr, reqBytes: ByteArray): ByteArray {
     val renderer = renderer.getRenderer()
     val req = RenderRequest.unpack(reqBytes)
-    return renderer.render(req).pack()
+    return returnResult(
+        renderer.render(req),
+        RenderResponse::pack
+    )
 }
 
 @JNIConnect(

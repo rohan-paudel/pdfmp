@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.zIndex
 import com.dshatz.pdfmp.compose.platformModifier.platformScrollableModifier
+import com.dshatz.pdfmp.compose.state.DisplayState
 import com.dshatz.pdfmp.compose.state.PdfState
 import com.dshatz.pdfmp.compose.tools.TransformedBitmapRenderer
 import com.dshatz.pdfmp.compose.tools.pageTransformModifier
@@ -60,7 +61,7 @@ fun PdfView(
     val listState = rememberLazyListState()
     val horizontalScroll = rememberScrollState()
 
-    if (state.isInitialized.value) {
+    if (state.isReady.value) {
         LaunchedEffect(Unit) {
             state.bind(listState, horizontalScroll)
         }
@@ -104,7 +105,7 @@ private fun LazyListScope.FullDocumentBoxes(state: PdfState) {
                     )
                 }
             }
-            val bottomPadding = if (pageIdx != state.pages.size - 1) state.scaledPageSpacing() else 0
+            val bottomPadding = if (pageIdx != state.pageRange.last) state.scaledPageSpacing() else 0
             Column(Modifier
                 .requiredSize(size)
                 .padding(bottom = with(density) { bottomPadding.toDp() }),
@@ -123,14 +124,16 @@ private fun PdfViewport(
     val transforms by state.produceImageTransforms()
     val image by produceState<CurrentImage?>(null, transforms) {
         delay(100)
-        val (response, buffer) = state.renderViewport(transforms)
-        val oldImage = value
-        value = CurrentImage(
-            transforms,
-            response.transforms,
-            buffer
-        )
-        oldImage?.free()
+        state.renderViewport(transforms)?.let {
+            val (response, buffer) = it
+            val oldImage = value
+            value = CurrentImage(
+                transforms,
+                response.transforms,
+                buffer
+            )
+            oldImage?.free()
+        }
     }
 
 
@@ -182,14 +185,16 @@ private fun BaseImage(
                     topGap = 0
                 )
 
-                val (response, buffer) = state.renderFullPage(fullPageTransform)
-                val image = CurrentImage(
-                    requestedTransforms = listOf(fullPageTransform),
-                    loadedTransforms = response.transforms,
-                    buffer = buffer
-                )
-                baseImageCache[transform.pageIndex] = image
-                viewPortCache.value = state.viewport.value
+                state.renderFullPage(fullPageTransform)?.let {
+                    val (response, buffer) = it
+                    val image = CurrentImage(
+                        requestedTransforms = listOf(fullPageTransform),
+                        loadedTransforms = response.transforms,
+                        buffer = buffer
+                    )
+                    baseImageCache[transform.pageIndex] = image
+                    viewPortCache.value = state.viewport.value
+                }
             }
         }
         // remove pages that are no longer visible from cache

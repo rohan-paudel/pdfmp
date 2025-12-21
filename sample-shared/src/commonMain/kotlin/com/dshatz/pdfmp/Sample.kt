@@ -2,6 +2,7 @@ package com.dshatz.pdfmp
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -13,12 +14,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.dshatz.pdfmp.compose.PdfView
 import com.dshatz.pdfmp.compose.source.asyncPdfResource
+import com.dshatz.pdfmp.compose.state.DisplayState
 import com.dshatz.pdfmp.compose.state.rememberPdfState
+import com.dshatz.pdfmp.source.PdfSource
+import kotlinx.io.files.Path
 import pdf_multiplatform.sample_shared.generated.resources.Res
 
 @Composable
@@ -61,6 +66,14 @@ fun Sample() {
                     Text("Colorful")
                 }
             )
+
+            Tab(
+                selected = selected == 4,
+                onClick = { selected = 4 },
+                content = {
+                    Text("Missing file")
+                }
+            )
         }
         AnimatedContent(selected, modifier = Modifier.weight(1f)) {
             if (it == 0) {
@@ -69,8 +82,10 @@ fun Sample() {
                 TruncatedDoc(truncatedRange)
             } else if (it == 2) {
                 LandscapeDoc()
-            } else {
+            } else if (it == 3) {
                 ColoredDoc()
+            } else {
+                MissingDoc()
             }
         }
 
@@ -134,5 +149,20 @@ private fun ColoredDoc() {
             pdf,
             modifier = Modifier.fillMaxSize()
         )
+    }
+}
+
+@Composable
+private fun MissingDoc() {
+    val pdf = rememberPdfState(PdfSource.PdfPath(Path("missing.pdf")))
+    val state by pdf.displayState
+    Box {
+        PdfView(
+            pdf,
+            modifier = Modifier.fillMaxSize()
+        )
+        (state as? DisplayState.Error)?.error?.let {
+            Text(it.message.orEmpty(), modifier = Modifier.align(Alignment.Center))
+        }
     }
 }

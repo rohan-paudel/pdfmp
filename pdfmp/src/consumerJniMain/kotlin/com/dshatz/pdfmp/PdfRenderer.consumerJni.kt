@@ -3,42 +3,36 @@ package com.dshatz.pdfmp
 import com.dshatz.pdfmp.model.RenderRequest
 import com.dshatz.pdfmp.model.RenderResponse
 import com.dshatz.pdfmp.source.PdfSource
+import kotlinx.io.Buffer
 
 actual class PdfRenderer actual constructor(private val source: PdfSource) {
 
-    private val renderer = PDFBridge.openFile(source.pack())
+    private val renderer = unpackResult(PDFBridge.openFile(source.pack()), Buffer::readLong)
     
-    actual fun render(renderRequest: RenderRequest): RenderResponse {
-        val packed = renderRequest.pack()
-        val response = RenderResponse.unpack(
-            PDFBridge.render(renderer,packed)
-        )
-        return RenderResponse(
-            response.transforms,
-        )
+    actual fun render(renderRequest: RenderRequest): Result<RenderResponse> {
+        return renderer.mapCatching { renderer ->
+            val packed = renderRequest.pack()
+            val response = unpackResult(
+                PDFBridge.render(renderer,packed),
+                RenderResponse::unpack
+            )
+            response.getOrThrow()
+        }
     }
 
-    actual fun close()  {
-        PDFBridge.close(renderer)
+    actual fun close() {
+        renderer.getOrNull()?.let(PDFBridge::close)
     }
 
-    actual fun getPageCount(): Int {
-        return PDFBridge.getPageCount(renderer)
+    actual fun getPageCount(): Result<Int> {
+        return renderer.mapCatching {
+            unpackResult(PDFBridge.getPageCount(it), Buffer::readInt).getOrThrow()
+        }
     }
 
-    actual fun getAspectRatio(pageIndex: Int): Float {
-        return PDFBridge.getAspectRatio(renderer, pageIndex)
+    actual fun getPageRatios(): Result<List<Float>> {
+        return renderer.mapCatching {
+            unpackResult(PDFBridge.getPageRatios(it), ::unpackFloats).getOrThrow()
+        }
     }
-
-    actual fun getPageRatios(): List<Float> {
-        return unpackFloats(PDFBridge.getPageRatios(renderer))
-    }
-
-
-    /*data class JvmRenderResponse(
-        override val transform: ImageTransform,
-        override val pageSize: PageSize,
-        val byteBuffer: ByteBuffer
-    ): RenderResponse(transform, pageSize)*/
-
 }

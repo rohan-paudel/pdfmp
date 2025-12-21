@@ -56,6 +56,7 @@ fun e(
 ) {
     log(LogLevel.ERROR, tag, message + ": " + exception.message)
     exception.printStackTrace()
+    if (exception is PDFFMPNativeException) println("Native stacktrace: \n${exception.nativeStackTrace}")
 }
 enum class LogLevel {
     VERBOSE,
