@@ -52,6 +52,9 @@ private fun KotlinNativeTarget.setupSharedLib() {
             baseName = "pdfmp"
             linkerOpts.add("-rpath")
             linkerOpts.add("\$ORIGIN")
+            if (androidLib != null) {
+                linkerOpts("-ljnigraphics")
+            }
         }
     }
     // Link against pdfium
@@ -132,6 +135,9 @@ kotlin {
                 implementation(libs.jni)
                 implementation(libs.jni.annotations)
             }
+        }
+        jvmMain.dependencies {
+            implementation(libs.skiko)
         }
         getByName("androidNativeMain").dependsOn(getByName("nativeJniMain"))
 

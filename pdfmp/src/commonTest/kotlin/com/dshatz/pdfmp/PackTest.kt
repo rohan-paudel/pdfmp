@@ -1,5 +1,7 @@
 package com.dshatz.pdfmp
 
+import com.dshatz.pdfmp.model.BufferDimensions
+import com.dshatz.pdfmp.model.BufferInfo
 import com.dshatz.pdfmp.model.PageTransform
 import com.dshatz.pdfmp.model.RenderRequest
 import kotlinx.io.Buffer
@@ -45,7 +47,11 @@ class PackTest {
             transforms = generateSequence { randomPageTransform() }.take(Random.nextInt(10)).toList(),
             0,
             0,
-            bufferAddress = Random.nextLong()
+            BufferDimensions(
+                100,
+                200,
+                400
+            ).withAddress(1),
         )
         val bytes = input.pack()
         assertEquals(

@@ -3,6 +3,7 @@ package com.dshatz.pdfmp
 import cnames.structs.fpdf_document_t__
 import com.dshatz.internal.pdfium.*
 import com.dshatz.pdfmp.error.PdfiumException
+import com.dshatz.pdfmp.model.BufferDimensions
 import com.dshatz.pdfmp.model.PageTransform
 import com.dshatz.pdfmp.model.RenderRequest
 import com.dshatz.pdfmp.model.RenderResponse
@@ -49,7 +50,8 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
         runCatching {
             renderPages(
                 renderRequest.transforms,
-                renderRequest.bufferAddress,
+                renderRequest.bufferInfo.address,
+                renderRequest.bufferInfo.dimensions
             )
         }
     }
@@ -71,6 +73,7 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
     private fun renderPages(
         transforms: List<PageTransform>,
         bufferAddress: Long,
+        bufferDimensions: BufferDimensions
     ): RenderResponse {
         val document = getDocument()
 
@@ -85,68 +88,65 @@ actual class PdfRenderer actual constructor(private val source: PdfSource): Sync
             maxWidth = maxOf(maxWidth, w)
         }
 
-        if (totalHeight == 0 || maxWidth == 0) error("Total dimensions are zero")
-
-        val stride = maxWidth * 4
+        if (totalHeight == 0 || maxWidth == 0 || bufferDimensions.stride == 0) error("Total dimensions are zero")
 
         val targetPtr: CPointer<ByteVar> = bufferAddress.toCPointer<ByteVar>()
             ?: throw IllegalArgumentException("Invalid target memory address")
 
         val combinedBitmap = FPDFBitmap_CreateEx(
-            maxWidth,
-            totalHeight,
+            bufferDimensions.width,
+            bufferDimensions.height,
             FPDFBitmap_BGRA,
             targetPtr,
-            stride
+            bufferDimensions.stride
         ) ?: throw IllegalStateException("Failed to create combined bitmap wrapper")
 
         try {
-            FPDFBitmap_FillRect(combinedBitmap, 0, 0, maxWidth, totalHeight, 0x00000000u)
+            FPDFBitmap_FillRect(
+                combinedBitmap,
+                0,
+                0,
+                bufferDimensions.width,
+                bufferDimensions.height,
+                0x00000000u
+            )
 
             var currentY = 0
 
             transforms.forEach { transform ->
                 currentY += transform.topGap
+
+                val sliceHeight = transform.scaledHeight - transform.topCutoff - transform.bottomCutoff
+                val sliceWidth = transform.scaledWidth - transform.leftCutoff - transform.rightCutoff
+
+                FPDFBitmap_FillRect(
+                    combinedBitmap,
+                    0,
+                    currentY,
+                    sliceWidth,
+                    sliceHeight,
+                    0xFFFFFFFFu
+                )
+
                 val page = document.openPage(transform.pageIndex)
                 try {
-                    val sliceHeight = transform.scaledHeight - transform.topCutoff - transform.bottomCutoff
-                    val sliceWidth = transform.scaledWidth - transform.leftCutoff - transform.rightCutoff
+                    val startX = -transform.leftCutoff
+                    val startY = currentY - transform.topCutoff
 
-                    val offsetBytes = currentY * stride
-                    val sliceBufferPtr = targetPtr.plus(offsetBytes)!!.reinterpret<CPointed>()
-
-                    val subBitmap = FPDFBitmap_CreateEx(
-                        sliceWidth,
-                        sliceHeight,
-                        FPDFBitmap_BGRA,
-                        sliceBufferPtr,
-                        stride
-                    ) ?: throw IllegalStateException("Failed to create sub-bitmap")
-
-                    try {
-                        FPDFBitmap_FillRect(subBitmap, 0, 0, sliceWidth, sliceHeight, 0xFFFFFFFFu)
-
-                        val startX = -transform.leftCutoff
-                        val startY = -transform.topCutoff
-
-                        FPDF_RenderPageBitmap(
-                            subBitmap,
-                            page,
-                            startX,
-                            startY,
-                            transform.scaledWidth,
-                            transform.scaledHeight,
-                            0,
-                            0
-                        )
-                    } finally {
-                        FPDFBitmap_Destroy(subBitmap)
-                    }
-                    currentY += sliceHeight
-
+                    FPDF_RenderPageBitmap(
+                        combinedBitmap,
+                        page,
+                        startX,
+                        startY,
+                        transform.scaledWidth,
+                        transform.scaledHeight,
+                        0,
+                        0
+                    )
                 } finally {
                     FPDF_ClosePage(page)
                 }
+                currentY += sliceHeight
             }
             return RenderResponse(transforms)
 

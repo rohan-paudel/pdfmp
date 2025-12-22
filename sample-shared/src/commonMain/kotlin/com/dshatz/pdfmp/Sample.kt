@@ -8,12 +8,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowCircleUp
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Tab
@@ -137,23 +142,26 @@ private fun FullDoc() {
                     }
                     Text("Page ${mostVisiblePageIdx + 1} / ${scrollState.totalPages.value} (Zoom $zoom%)", fontSize = 24.sp, modifier = Modifier.padding(5.dp))
                     Text("Vertical scroll ${scrollState.offsetY.roundToInt()}/${scrollState.documentHeight.value.roundToInt()}", fontSize = 20.sp)
-                    Button(
-                        onClick = {
-                            scrollState.scrollTo(4)
-                        }
-                    ) {
-                        Text("Go to page 4")
-                    }
-                    val pageRange by scrollState.pageRange
-                    val animateTarget = if (mostVisiblePageIdx == pageRange.last) pageRange.first else pageRange.last
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                scrollState.animateScrollTo(animateTarget)
+                    Column {
+                        OutlinedIconButton(
+                            onClick = {
+                                scope.launch {
+                                    scrollState.animateScrollTo(scrollState.pageRange.value.first)
+                                }
                             }
+                        ) {
+                            Icon(Icons.Default.ArrowUpward, null)
                         }
-                    ) {
-                        Text("Animate to $animateTarget")
+
+                        OutlinedIconButton(
+                            onClick = {
+                                scope.launch {
+                                    scrollState.animateScrollTo(scrollState.pageRange.value.last)
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.ArrowDownward, null)
+                        }
                     }
                 }
                 Column(modifier = Modifier.padding(20.dp).align(Alignment.BottomEnd)) {

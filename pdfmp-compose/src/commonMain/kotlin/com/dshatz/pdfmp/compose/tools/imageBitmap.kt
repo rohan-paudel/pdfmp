@@ -10,10 +10,15 @@ internal expect fun CurrentImage.toImageBitmap(): RecyclableBitmap
 
 data class RecyclableBitmap(
     val imageBitmap: ImageBitmap,
-    private val onRecycle: () -> Unit,
-    val colorFilter: ColorFilter? = null
+    val colorFilter: ColorFilter? = null,
+    private val onTouch: () -> Unit = {}
 ) {
-    fun free() {
-        onRecycle()
+    /**
+     * Let the GPU know that the actual pixels have changed.
+     *
+     * If we just write bytes to the backing buffer, gpu will not re-load those bytes and display stale pixels.
+     */
+    fun touch() {
+        onTouch()
     }
 }

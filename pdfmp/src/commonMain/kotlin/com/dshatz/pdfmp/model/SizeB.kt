@@ -3,7 +3,7 @@ package com.dshatz.pdfmp.model
 import kotlin.jvm.JvmInline
 
 @JvmInline
-value class SizeB(val bytes: Int): Comparable<SizeB> {
+value class SizeB(val bytes: Long): Comparable<SizeB> {
     val stringMB: String get() {
         return "${bytes / 1024 / 1024} MB"
     }

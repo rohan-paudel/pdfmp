@@ -2,33 +2,21 @@ package com.dshatz.pdfmp.compose.state
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.State
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import com.dshatz.pdfmp.ConsumerBuffer
-import com.dshatz.pdfmp.ConsumerBufferPool
-import com.dshatz.pdfmp.InitLib
+import com.dshatz.pdfmp.*
 import com.dshatz.pdfmp.model.PageTransform
-import com.dshatz.pdfmp.PdfRenderer
-import com.dshatz.pdfmp.e
 import com.dshatz.pdfmp.model.RenderRequest
 import com.dshatz.pdfmp.model.RenderResponse
 import com.dshatz.pdfmp.source.PdfSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlin.math.floor
 import kotlin.math.min
 import kotlin.time.ExperimentalTime
 
@@ -340,6 +328,9 @@ data class PdfState(
         // Subsequent pages are automatically spaced by the native renderer.
         val topOffset = visiblePages.value.firstOrNull()?.topGap ?: 0
 
+        // Otherwise native will receive 0x0 size and crash.
+        if (transforms.isEmpty()) return null
+
         val buffer = bufferPool.getBufferViewport(transforms)
         return buffer.withAddress {
             val response = renderer.render(
@@ -347,7 +338,7 @@ data class PdfState(
                     transforms,
                     pageSpacing,
                     topOffset,
-                    it
+                    buffer.dimensions.withAddress(it),
                 )
             )
             response.map { resp ->
@@ -367,7 +358,7 @@ data class PdfState(
                     listOf(transform),
                     0,
                     0,
-                    it,
+                    buffer.dimensions.withAddress(it)
                 )
             )
             response.map { resp ->

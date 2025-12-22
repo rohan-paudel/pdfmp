@@ -2,9 +2,7 @@ package com.dshatz.pdfmp
 
 import com.dshatz.pdfmp.model.SizeB
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.MemScope
 import kotlinx.cinterop.addressOf
-import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.toLong
 import kotlinx.cinterop.usePinned
 
@@ -34,7 +32,7 @@ actual class ConsumerBuffer(val byteArray: ByteArray) {
 }
 
 actual object ConsumerBufferUtil {
-    actual fun allocate(size: SizeB): ConsumerBuffer {
+    actual fun allocate(size: SizeB, width: Int, height: Int): ConsumerBuffer {
         d("Allocating buffer ByteArray($size)")
         return ConsumerBuffer(ByteArray(size.bytes))
     }

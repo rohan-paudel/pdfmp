@@ -24,7 +24,6 @@ data class CurrentImage(
     private val bitmap: MutableState<RecyclableBitmap?> = mutableStateOf(null)
 ): ICurrentImage {
     fun free() {
-        bitmap.value?.free()
         buffer.free()
     }
 

@@ -11,11 +11,34 @@ fun log(
     tag: String = "PDFMP",
     message: String
 ) {
-    if (isDebug() || level == LogLevel.ERROR) {
-        val paddedTag = "[$tag]".padStart(10, ' ')
-        val paddedLevel = level.name.padStart(8, ' ')
-        println("${Clock.System.now()} $paddedTag $paddedLevel: $message")
+    if (shouldLog(level)) {
+        logPlatform(
+            level,
+            tag,
+            message
+        )
     }
+}
+
+internal expect fun logPlatform(
+    level: LogLevel,
+    tag: String = "PDFMP",
+    message: String
+)
+
+@OptIn(ExperimentalTime::class)
+internal fun logUsingPrintln(
+    level: LogLevel,
+    tag: String = "PDFMP",
+    message: String
+) {
+    val paddedTag = "[$tag]".padStart(10, ' ')
+    val paddedLevel = level.name.padStart(8, ' ')
+    println("${Clock.System.now()} $paddedTag $paddedLevel: $message")
+}
+
+fun shouldLog(level: LogLevel): Boolean {
+    return isDebug() || level == LogLevel.ERROR
 }
 
 fun v(

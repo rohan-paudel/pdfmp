@@ -28,7 +28,7 @@ kotlin {
 
         }
         androidMain.dependencies {
-            implementation("androidx.activity:activity-compose:1.11.0")
+            implementation("androidx.activity:activity-compose:1.12.2")
         }
     }
 }

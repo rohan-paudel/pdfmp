@@ -30,6 +30,7 @@ import com.dshatz.pdfmp.compose.platformModifier.platformScrollableModifier
 import com.dshatz.pdfmp.compose.state.PdfState
 import com.dshatz.pdfmp.compose.tools.TransformedBitmapRenderer
 import com.dshatz.pdfmp.compose.tools.pageTransformModifier
+import com.dshatz.pdfmp.compose.tools.toImageBitmap
 import com.dshatz.pdfmp.model.calculateSize
 import kotlinx.coroutines.delay
 
@@ -103,13 +104,11 @@ private fun PdfViewport(
         delay(100)
         state.renderViewport(transforms)?.let {
             val (response, buffer) = it
-            val oldImage = value
             value = CurrentImage(
                 transforms,
                 response.transforms,
                 buffer
             )
-            oldImage?.free()
         }
     }
 
@@ -124,9 +123,20 @@ private fun PdfViewport(
         if (transforms == image?.loadedTransforms) {
             image?.let { img ->
                 sliceSize?.let {
+                    val bitmap = img.composeBitmap()
+                    val (w, h) = img.loadedTransforms.calculateSize()
+                    val painter = remember(img) {
+                        androidx.compose.ui.graphics.painter.BitmapPainter(
+                            image = bitmap.imageBitmap,
+                            srcSize = IntSize(
+                                w, h
+                            )
+                        )
+                    }
+                    img.composeBitmap().touch()
                     Image(
                         contentScale = ContentScale.FillBounds,
-                        bitmap = img.composeBitmap().imageBitmap,
+                        painter = painter,
                         contentDescription = null,
                         colorFilter = img.composeBitmap().colorFilter,
                         modifier = Modifier.requiredSize(sliceSize)
@@ -173,7 +183,7 @@ private fun BaseImage(
                             loadedTransforms = response.transforms,
                             buffer = buffer
                         )
-                        baseImageCache.put(transform.pageIndex, image)?.free()
+                        baseImageCache[transform.pageIndex] = image
                     }
                 }
             }
@@ -209,7 +219,7 @@ private fun BaseImage(
             ) {
                 if (cachedImage != null) {
                     val bitmap = cachedImage.composeBitmap()
-
+                    bitmap.touch()
                     TransformedBitmapRenderer(
                         bitmap = bitmap.imageBitmap,
                         colorFilter = bitmap.colorFilter,
