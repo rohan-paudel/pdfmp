@@ -1,5 +1,11 @@
 # PDF Viewer library for Kotlin Multiplatform and Compose Multiplatform.
 
+![](https://img.shields.io/badge/Linux%20x64/arm64-blue?style=for-the-badge&logo=linux)
+![](https://img.shields.io/badge/MacOS%20x64/arm64-blue?style=for-the-badge&logo=apple)
+![](https://img.shields.io/badge/Windows%20(x64)-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz48IS0tIFVwbG9hZGVkIHRvOiBTVkcgUmVwbywgd3d3LnN2Z3JlcG8uY29tLCBHZW5lcmF0b3I6IFNWRyBSZXBvIE1peGVyIFRvb2xzIC0tPg0KPHN2ZyB3aWR0aD0iODAwcHgiIGhlaWdodD0iODAwcHgiIHZpZXdCb3g9IjAgMCAyNCAyNCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4NCiAgPHRpdGxlPm1pY3Jvc29mdF93aW5kb3dzPC90aXRsZT4NCiAgPHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJub25lIi8+DQogIDxwYXRoIGQ9Ik0zLDEyVjYuNzVMOSw1LjQzdjYuNDhMMywxMk0yMCwzdjguNzVMMTAsMTEuOVY1LjIxTDIwLDNNMywxM2w2LC4wOVYxOS45TDMsMTguNzVWMTNtMTcsLjI1VjIyTDEwLDIwLjA5di03WiIvPg0KPC9zdmc+)
+![](https://img.shields.io/badge/Android%20(all%20eabis)-blue?style=for-the-badge&logo=android)
+![](https://img.shields.io/badge/iOS%20(x64/arm64/simulator)-blue?style=for-the-badge&logo=ios)
+
 This library wraps [libpdfium](https://pdfium.googlesource.com/pdfium/) (the Chromium PDF engine). The pre-compiled pdfium files are taken from [here](https://github.com/bblanchon/pdfium-binaries) and bundled into this library.
 
 ## Supported targets
@@ -8,20 +14,21 @@ This library wraps [libpdfium](https://pdfium.googlesource.com/pdfium/) (the Chr
     - Linux x64, ARM64
     - Windows X64
     - MacOS X64, ARM64
-- iOS **(needs work, see #17)**
+- iOS
     - x64 (simulator)
     - arm64
     - arm64Simulator
 
  ## Usage
  ### Add the dependency
- 
+ ![Maven Central Version](https://img.shields.io/maven-central/v/com.dshatz.pdfmp/pdfmp)
+
  ```kotlin
- implementation("com.dshatz.pdfmp:pdfmp-compose:1.0.7")
+ implementation("com.dshatz.pdfmp:pdfmp-compose:1.0.8")
 ```
 
 ```toml
-pdfmp = { module = "com.dshatz.pdfmp:pdfmp-compose", version = "1.0.7" }
+pdfmp = { module = "com.dshatz.pdfmp:pdfmp-compose", version = "1.0.8" }
 ```
 
 ### Load the pdf
