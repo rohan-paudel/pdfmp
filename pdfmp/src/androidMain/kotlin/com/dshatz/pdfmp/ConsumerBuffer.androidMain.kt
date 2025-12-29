@@ -13,7 +13,7 @@ actual class ConsumerBuffer(
 
     actual override val dimensions: BufferDimensions = bufferInfo.dimensions
 
-    actual override fun <T> withAddress(action: (Long) -> T): T {
+    actual override suspend fun <T> withAddress(action: suspend (Long) -> T): T {
         return action(bufferInfo.address)
     }
 
