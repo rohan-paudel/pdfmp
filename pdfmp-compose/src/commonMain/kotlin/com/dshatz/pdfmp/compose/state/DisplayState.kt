@@ -41,7 +41,7 @@ class PdfLayoutInfo internal constructor(
      */
     var offsetY: Float
         get() = getOffsetY()
-        private set(value) = setOffsetY(value)
+        set(value) = setOffsetY(value)
 
     private val animatableScroll = Animatable(0f)
     suspend fun animateScrollTo(
